@@ -204,12 +204,29 @@ class GameVersionStatusService(
         val infoFile = ancestorDirectories(gamePath)
             .map { it.resolve(expectedName) }
             .firstOrNull(Files::isRegularFile)
-            ?: return emptyList()
-        val info = objectMapper.readTree(Files.readString(infoFile))
-        return sequenceOf("buildId", "build_id", "version", "version_name")
-            .mapNotNull { key -> info.path(key).takeIf { !it.isMissingNode && !it.isNull }?.asText()?.trim() }
-            .filter { it.isNotEmpty() }
-            .toList()
+        val infoValues = infoFile?.let { file ->
+            val info = objectMapper.readTree(Files.readString(file))
+            sequenceOf("buildId", "build_id", "version", "version_name")
+                .mapNotNull { key -> info.path(key).takeIf { !it.isMissingNode && !it.isNull }?.asText()?.trim() }
+                .filter { it.isNotEmpty() }
+                .toList()
+        }.orEmpty()
+        return infoValues + detectGogInstallerVersions(gamePath)
+    }
+
+    /** Offline installers are named like setup_game_1.5.1_(64bit)_(93251).exe, the version is matched against GOG's version names. */
+    private fun detectGogInstallerVersions(gamePath: Path): List<String> {
+        val names = if (Files.isDirectory(gamePath)) {
+            Files.walk(gamePath, 2).use { files ->
+                files.filter(Files::isRegularFile).map { it.fileName.toString() }.toList()
+            }
+        } else {
+            listOf(gamePath.fileName.toString())
+        }
+        return names
+            .filter { GOG_INSTALLER_NAME.matches(it) }
+            .flatMap { name -> GOG_INSTALLER_VERSION.findAll(name).map { it.groupValues[1] }.toList() }
+            .distinct()
     }
 
     private fun detectEpicValues(gamePath: Path): List<String> {
@@ -236,6 +253,8 @@ class GameVersionStatusService(
     companion object {
         private const val MAX_ANCESTORS = 8
         private val ACF_APP_ID = Regex("\"appid\"\\s+\"(\\d+)\"")
+        private val GOG_INSTALLER_NAME = Regex("^(setup|patch)_.+\\.(exe|bin)$", RegexOption.IGNORE_CASE)
+        private val GOG_INSTALLER_VERSION = Regex("_v?(\\d+(?:\\.\\d+)+[a-z]?)(?=_|\\.(?:exe|bin)$|-\\d+\\.)", RegexOption.IGNORE_CASE)
         private val ACF_BUILD_ID = Regex("\"buildid\"\\s+\"(\\d+)\"")
     }
 }
