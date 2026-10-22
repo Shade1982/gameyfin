@@ -21,7 +21,7 @@ export interface StagedLink {
     versionsCheckedAt?: string;
     installedVersionId?: number;
     originalInstalledVersionId?: number;
-    /** The staged installed version was detected instead of selected by hand. */
+    /** The staged library version was detected instead of selected by hand. */
     detected: boolean;
     removed: boolean;
     /** Versions of a link that is not saved yet use negative IDs, which index into this list. */
@@ -114,9 +114,9 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
                 };
             }));
             if (preview.detectedIndex != null) {
-                toast.success("Installed version detected", {description: preview.versions[preview.detectedIndex].label});
+                toast.success("Library version detected", {description: preview.versions[preview.detectedIndex].label});
             } else if (overrideSelection) {
-                toast.info("Version not detected", {description: "No installed version matching the cached builds was detected"});
+                toast.info("Version not detected", {description: "No library version matching the cached builds was detected"});
             }
         } catch (error) {
             update(key, {loadingVersions: false});
@@ -176,12 +176,12 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
             const result = await GameVersionEndpoint.previewDetection(link.linkId);
             if (result.detected) {
                 update(key, {installedVersionId: result.installedVersionId, detected: true});
-                toast.success("Installed version detected", {description: result.message});
+                toast.success("Library version detected", {description: result.message});
             } else {
                 toast.info("Version not detected", {description: result.message});
             }
         } catch (error) {
-            toast.danger("Could not detect installed version", {description: errorMessage(error)});
+            toast.danger("Could not detect library version", {description: errorMessage(error)});
         } finally {
             setPendingKey(undefined);
         }
