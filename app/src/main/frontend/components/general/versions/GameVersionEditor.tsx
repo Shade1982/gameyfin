@@ -43,7 +43,7 @@ export default function GameVersionEditor({gameTitle, editor}: GameVersionEditor
                             </div>
                         ) : (
                             <Select
-                                aria-label={`Installed ${STORE_NAMES[link.store]} version`}
+                                aria-label={`Library ${STORE_NAMES[link.store]} version`}
                                 value={link.installedVersionId?.toString() ?? "none"}
                                 isDisabled={busy || link.versions.length === 0}
                                 onChange={(value) => {
@@ -58,7 +58,7 @@ export default function GameVersionEditor({gameTitle, editor}: GameVersionEditor
                                 <Select.Popover>
                                     <ListBox>
                                         <ListBox.Item id="none" textValue="Not set">
-                                            Installed version: not set
+                                            Library version: not set
                                             <ListBox.ItemIndicator/>
                                         </ListBox.Item>
                                         {link.versions.map((version) => (

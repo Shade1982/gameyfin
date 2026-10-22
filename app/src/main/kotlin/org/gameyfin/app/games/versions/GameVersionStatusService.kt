@@ -131,7 +131,7 @@ class GameVersionStatusService(
                 detected = false,
                 installedVersionId = null,
                 installedVersionLabel = null,
-                message = "No installed version matching the cached ${link.store} builds was detected"
+                message = "No library version matching the cached ${link.store} builds was detected"
             )
         }
 
@@ -157,7 +157,7 @@ class GameVersionStatusService(
                 detected = false,
                 installedVersionId = null,
                 installedVersionLabel = null,
-                message = "No installed version matching the cached ${link.store} builds was detected"
+                message = "No library version matching the cached ${link.store} builds was detected"
             )
         return VersionDetectionResultDto(
             detected = true,
