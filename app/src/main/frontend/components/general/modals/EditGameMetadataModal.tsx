@@ -14,6 +14,8 @@ import ArrayInput from "Frontend/components/general/input/ArrayInput";
 import GameHeaderPicker from "Frontend/components/general/input/GameHeaderPicker";
 import AutocompleteInput from "Frontend/components/general/input/AutocompleteInput.tsx";
 import {useSnapshot} from "valtio/react";
+import GameVersionEditor from "Frontend/components/general/versions/GameVersionEditor";
+import {useGameVersionEditor} from "Frontend/components/general/versions/useGameVersionEditor";
 import {platformState} from "Frontend/state/PlatformState";
 import {useFullGame} from "Frontend/state/GameState";
 
@@ -33,6 +35,7 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
     useEffect(() => {
         if (isOpen) setRequestedGameId(gameId);
     }, [isOpen, gameId]);
+    const versionEditor = useGameVersionEditor(gameId, isOpen);
 
     useEffect(() => {
         GameEndpoint.getEnumPropertyValues().then(setPropertyEnumValues);
@@ -49,10 +52,19 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
                                 if (!game) return;
                                 //@ts-ignore
                                 const changed = deepDiff(game, values) as GameUpdateDto;
-                                if (Object.keys(changed).length === 0) return;
+                                const metadataChanged = Object.keys(changed).length > 0;
+                                if (!metadataChanged && !versionEditor.dirty) return;
 
-                                changed.id = game.id;
-                                await GameEndpoint.updateGame(changed);
+                                if (metadataChanged) {
+                                    changed.id = game.id;
+                                    await GameEndpoint.updateGame(changed);
+                                }
+
+                                try {
+                                    await versionEditor.apply();
+                                } catch {
+                                    return; // the error has already been reported, keep the dialog open
+                                }
                                 close();
                             }
 
@@ -126,6 +138,20 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
                                                                 </Accordion.Body>
                                                             </Accordion.Panel>
                                                         </Accordion.Item>
+                                                        <Accordion.Item id="store-versions">
+                                                            <Accordion.Heading>
+                                                                <Accordion.Trigger
+                                                                    className="flex items-center justify-between rounded-xl">
+                                                                    <span>Store versions</span>
+                                                                    <Accordion.Indicator/>
+                                                                </Accordion.Trigger>
+                                                            </Accordion.Heading>
+                                                            <Accordion.Panel>
+                                                                <Accordion.Body className="max-h-80 overflow-y-auto">
+                                                                    <GameVersionEditor gameTitle={game.title} editor={versionEditor}/>
+                                                                </Accordion.Body>
+                                                            </Accordion.Panel>
+                                                        </Accordion.Item>
                                                     </Accordion>
                                                 </Modal.Body>
                                                 <Modal.Footer>
@@ -135,7 +161,7 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
                                                     <Button
                                                         variant="primary"
                                                         isPending={formik.isSubmitting}
-                                                        isDisabled={formik.isSubmitting || !formik.dirty}
+                                                        isDisabled={formik.isSubmitting || (!formik.dirty && !versionEditor.dirty)}
                                                         type="submit"
                                                     >
                                                         {formik.isSubmitting ?
