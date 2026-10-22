@@ -39,7 +39,11 @@ class GameStoreLink(
     var tracked: Boolean = false,
 
     @Column(name = "versions_checked_at")
-    var versionsCheckedAt: Instant? = null
+    var versionsCheckedAt: Instant? = null,
+
+    /** Free-text label such as "Anniversary Edition". Purely informational, it does not affect version checks. */
+    @Column(length = 100)
+    var edition: String? = null
 )
 
 /** Cached version/build of a store product. Steam only has build IDs, GOG has real version names. */

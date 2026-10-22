@@ -98,4 +98,17 @@ class GameStoreLinkServiceTest {
         assertTrue(steam.tracked)
         assertEquals(false, gog.tracked)
     }
+
+    @Test
+    fun `edition label is trimmed, can be cleared and is length limited`() {
+        val link = service.addLink(10, GameStore.GOG, "1453375253")
+
+        service.setEdition(link.id!!, "  Anniversary Edition ")
+        assertEquals("Anniversary Edition", link.edition)
+
+        service.setEdition(link.id!!, "   ")
+        assertEquals(null, link.edition)
+
+        assertFailsWith<IllegalArgumentException> { service.setEdition(link.id!!, "x".repeat(101)) }
+    }
 }

@@ -1669,3 +1669,16 @@ databaseChangeLog:
             tableName: GAME_INCLUDED_DLC
             columnNames: LINK_ID, DLC_ID
             constraintName: UQ_GAME_INCLUDED_DLC
+
+  - changeSet:
+      id: 2.6.0-game-store-link-edition
+      author: grimsi
+      comment: >
+        Optional free-text edition label (e.g. "Anniversary Edition") on a store link. Informational only.
+      changes:
+        - addColumn:
+            tableName: GAME_STORE_LINK
+            columns:
+              - column:
+                  name: EDITION
+                  type: varchar(100)

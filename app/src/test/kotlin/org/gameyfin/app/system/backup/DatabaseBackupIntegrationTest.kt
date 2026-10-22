@@ -118,7 +118,7 @@ class DatabaseBackupIntegrationTest {
     /** Only usable with the current schema, older schema versions do not have these tables */
     private fun insertVersionData(dataSource: DataSource) = dataSource.connection.use { c ->
         c.createStatement().use { s ->
-            s.execute("INSERT INTO GAME_STORE_LINK (ID, GAME_ID, STORE, STORE_APP_ID, TRACKED) VALUES (201, 101, 'GOG', '1453375253', TRUE)")
+            s.execute("INSERT INTO GAME_STORE_LINK (ID, GAME_ID, STORE, STORE_APP_ID, TRACKED, EDITION) VALUES (201, 101, 'GOG', '1453375253', TRUE, 'Anniversary Edition')")
             s.execute("INSERT INTO STORE_VERSION (ID, LINK_ID, BUILD_ID, BRANCH, LABEL, RELEASED_AT) VALUES (301, 201, '1', '', '1.0', TIMESTAMP '2024-03-04 05:06:07')")
             s.execute("INSERT INTO STORE_VERSION (ID, LINK_ID, BUILD_ID, BRANCH, LABEL) VALUES (302, 201, '2', 'next-gen', '1.1')")
             s.execute("INSERT INTO GAME_VERSION_STATE (LINK_ID, INSTALLED_VERSION_ID, SOURCE) VALUES (201, 301, 'MANUAL')")

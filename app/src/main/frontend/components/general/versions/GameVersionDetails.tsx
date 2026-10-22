@@ -43,6 +43,7 @@ export default function GameVersionDetails({gameId, refreshKey}: GameVersionDeta
                         <td>
                             <div className="flex flex-wrap items-center gap-2">
                                 <span>{installed?.label ?? "Unknown"}</span>
+                                {status.edition && <Chip size="sm" variant="soft">{status.edition}</Chip>}
                                 {status.updateAvailable === true &&
                                     <Chip color="warning" size="sm">Update available</Chip>}
                                 {status.updateAvailable === false &&

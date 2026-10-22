@@ -1,8 +1,14 @@
 import React, {useState} from "react";
-import {Button, Chip, ListBox, Select, Spinner} from "@heroui/react";
+import {Button, Chip, Input, Label, ListBox, Select, Spinner, TextField} from "@heroui/react";
 import IncludedDlcPicker from "Frontend/components/general/versions/IncludedDlcPicker";
 import StoreSearchPicker, {STORE_NAMES} from "Frontend/components/general/versions/StoreSearchPicker";
 import {GameVersionEditorState} from "Frontend/components/general/versions/useGameVersionEditor";
+
+/** "Stellaris: Anniversary Edition" for the game "Stellaris" suggests "Anniversary Edition". */
+export function suggestEdition(gameTitle: string, storeTitle?: string): string {
+    if (!storeTitle || !storeTitle.toLowerCase().startsWith(gameTitle.toLowerCase())) return "";
+    return storeTitle.slice(gameTitle.length).replace(/^[\s:\-–—]+/, "").trim();
+}
 
 interface GameVersionEditorProps {
     gameId: number;
@@ -107,6 +113,18 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                             )}
                         </div>
 
+                        <TextField value={link.edition} onChange={(value) => editor.setEdition(link.key, value)}>
+                            <Label>Edition</Label>
+                            <Input
+                                variant="secondary"
+                                placeholder="e.g. Anniversary Edition (optional)"
+                                maxLength={100}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter") event.preventDefault();
+                                }}
+                            />
+                        </TextField>
+
                         <IncludedDlcPicker gameId={gameId} link={link}
                                            onChange={(dlc) => editor.setDlc(link.key, dlc)}/>
                     </div>
@@ -117,7 +135,8 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                 <StoreSearchPicker
                     initialQuery={gameTitle}
                     linkedKeys={linkedKeys}
-                    onPick={editor.addLink}
+                    onPick={(store, storeAppId, title) =>
+                        editor.addLink(store, storeAppId, title, suggestEdition(gameTitle, title))}
                     onClose={() => setAdding(false)}
                 />
             ) : (

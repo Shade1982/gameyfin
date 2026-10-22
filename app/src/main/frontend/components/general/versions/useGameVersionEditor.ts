@@ -25,6 +25,9 @@ export interface StagedLink {
     /** The staged library version was detected instead of selected by hand. */
     detected: boolean;
     removed: boolean;
+    /** Free-text edition label such as "Anniversary Edition". */
+    edition: string;
+    originalEdition: string;
     /** DLC that is included in the installer(s) for this store product. */
     dlc: IncludedDlcDto[];
     originalDlc: IncludedDlcDto[];
@@ -55,6 +58,8 @@ function fromStatus(status: VersionStatus, dlc: IncludedDlcDto[] = []): StagedLi
         originalInstalledVersionId: status.installedVersionId,
         detected: status.installedVersionSource === "AUTO",
         removed: false,
+        edition: status.edition ?? "",
+        originalEdition: status.edition ?? "",
         dlc,
         originalDlc: dlc,
     };
@@ -102,6 +107,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
             || link.installedVersionId !== link.originalInstalledVersionId
             || link.tracked !== link.originalTracked
             || !sameDlc(link.dlc, link.originalDlc)
+            || link.edition.trim() !== link.originalEdition
     ), [links]);
 
     const update = useCallback((key: string, change: Partial<StagedLink>) => {
@@ -146,7 +152,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         }
     }, [gameId, update]);
 
-    const addLink = useCallback((store: GameStore, storeAppId: string, title?: string) => {
+    const addLink = useCallback((store: GameStore, storeAppId: string, title?: string, edition = "") => {
         const duplicate = links.some((link) => !link.removed && link.store === store && link.storeAppId === storeAppId);
         if (duplicate) return;
 
@@ -160,7 +166,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         setLinks((current) => [...current, {
             key, store, storeAppId, title,
             tracked: false, originalTracked: false,
-            versions: [], detected: false, removed: false, dlc: [], originalDlc: [],
+            versions: [], detected: false, removed: false, edition, originalEdition: "", dlc: [], originalDlc: [],
         }]);
         void loadPreview(key, store, storeAppId);
     }, [links, loadPreview, update]);
@@ -182,6 +188,10 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
 
     const setDlc = useCallback((key: string, dlc: IncludedDlcDto[]) => {
         update(key, {dlc});
+    }, [update]);
+
+    const setEdition = useCallback((key: string, edition: string) => {
+        update(key, {edition});
     }, [update]);
 
     const makePrimary = useCallback((key: string) => {
@@ -258,6 +268,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
                         description: errorMessage(error) + " Use Refresh to try again.",
                     });
                 }
+                if (link.edition.trim()) await GameStoreLinkEndpoint.setEdition(created.id, link.edition.trim());
                 if (link.dlc.length > 0) await GameDlcEndpoint.setIncluded(created.id, link.dlc);
             }
 
@@ -267,6 +278,10 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
 
             for (const link of existing.filter((l) => l.installedVersionId !== l.originalInstalledVersionId)) {
                 await GameVersionEndpoint.setInstalledVersion(link.linkId!, link.installedVersionId, link.detected);
+            }
+
+            for (const link of existing.filter((l) => l.edition.trim() !== l.originalEdition)) {
+                await GameStoreLinkEndpoint.setEdition(link.linkId!, link.edition.trim() || undefined);
             }
 
             for (const link of existing.filter((l) => !sameDlc(l.dlc, l.originalDlc))) {
@@ -281,7 +296,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
 
     return {
         links: visibleLinks, loading, pendingKey, dirty,
-        addLink, removeLink, setInstalledVersion, setDlc, makePrimary, detect, refresh, refreshPreview, apply,
+        addLink, removeLink, setInstalledVersion, setDlc, setEdition, makePrimary, detect, refresh, refreshPreview, apply,
     };
 }
 
