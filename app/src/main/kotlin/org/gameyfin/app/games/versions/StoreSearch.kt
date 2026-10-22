@@ -97,6 +97,10 @@ class GameStoreSearchService(private val providers: List<GameStoreSearchProvider
 internal fun normalizeSearchQuery(query: String): String =
     query.replace(Regex("[^\\p{L}\\p{N}']+"), " ").trim()
 
+/** Epic's cover images are 1200x1600 (about 600 KB), which is far too heavy for a result list thumbnail. */
+internal fun epicThumbnailUrl(url: String): String =
+    if (URI.create(url).host == "cdn1.epicgames.com" && '?' !in url) "$url?h=96&resize=1&w=72" else url
+
 internal fun parseSteamSearch(root: JsonNode): List<StoreSearchResultDto> =
     root.path("items").mapNotNull { item ->
         val id = item.path("id").asString("").takeIf { GameStore.STEAM.isValidId(it) } ?: return@mapNotNull null
@@ -121,6 +125,7 @@ internal fun parseEpicSearch(root: JsonNode): List<StoreSearchResultDto> =
         val image = listOf("OfferImageTall", "Thumbnail")
             .firstNotNullOfOrNull { type -> images.firstOrNull { it.path("type").asString("") == type } }
             ?.path("url")?.asString("")?.takeIf { it.isNotBlank() }
+            ?.let(::epicThumbnailUrl)
         StoreSearchResultDto(id, title, offer.path("seller").path("name").asString("").takeIf { it.isNotBlank() }, image)
     }.take(MAX_SEARCH_RESULTS)
 

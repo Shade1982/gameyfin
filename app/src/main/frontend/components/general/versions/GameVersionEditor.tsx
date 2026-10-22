@@ -145,8 +145,10 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                 <StoreSearchPicker
                     initialQuery={gameTitle}
                     linkedKeys={linkedKeys}
-                    onPick={(store, storeAppId, title) =>
-                        editor.addLink(store, storeAppId, title, suggestEdition(title))}
+                    onPick={(store, storeAppId, title) => {
+                        editor.addLink(store, storeAppId, title, suggestEdition(title));
+                        setAdding(false);
+                    }}
                     onClose={() => setAdding(false)}
                 />
             ) : (

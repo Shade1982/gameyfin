@@ -111,4 +111,13 @@ class StoreSearchTest {
         assertEquals("The Witcher 3 Wild Hunt Remastered", normalizeSearchQuery("The Witcher 3: Wild Hunt — Remastered"))
         assertEquals("Assassin's Creed", normalizeSearchQuery("  Assassin's Creed! "))
     }
+
+    @Test
+    fun `Epic cover images are requested as small thumbnails`() {
+        assertEquals(
+            "https://cdn1.epicgames.com/offer/x/cover-1?h=96&resize=1&w=72",
+            epicThumbnailUrl("https://cdn1.epicgames.com/offer/x/cover-1")
+        )
+        assertEquals("https://example.test/tall.jpg", epicThumbnailUrl("https://example.test/tall.jpg"))
+    }
 }
