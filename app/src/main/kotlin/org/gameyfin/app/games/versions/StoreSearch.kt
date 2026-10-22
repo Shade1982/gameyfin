@@ -82,13 +82,20 @@ class EpicStoreSearchProvider : GameStoreSearchProvider {
 class GameStoreSearchService(private val providers: List<GameStoreSearchProvider>) {
 
     fun search(store: GameStore, query: String): List<StoreSearchResultDto> {
-        val trimmed = query.trim()
+        val trimmed = normalizeSearchQuery(query)
         if (trimmed.length < 2) return emptyList()
         val provider = providers.singleOrNull { it.store == store }
             ?: throw IllegalStateException("No search provider is registered for $store")
         return provider.search(trimmed.take(100)).take(MAX_SEARCH_RESULTS)
     }
 }
+
+/**
+ * Store searches are word based and some (Steam) return nothing when the query contains punctuation such as a dash
+ * in "Wild Hunt — Remastered". Apostrophes are kept because they are part of words.
+ */
+internal fun normalizeSearchQuery(query: String): String =
+    query.replace(Regex("[^\\p{L}\\p{N}']+"), " ").trim()
 
 internal fun parseSteamSearch(root: JsonNode): List<StoreSearchResultDto> =
     root.path("items").mapNotNull { item ->

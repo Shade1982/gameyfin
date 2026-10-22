@@ -71,7 +71,9 @@ class GameDlcService(
 
         val wanted = dlc.distinctBy { it.dlcId }
         wanted.forEach {
-            require(link.store.isValidId(it.dlcId)) { "Invalid ${link.store.name} DLC ID: '${it.dlcId}'" }
+            require(link.store.isValidId(it.dlcId) || CUSTOM_DLC_ID.matches(it.dlcId)) {
+                "Invalid ${link.store.name} DLC ID: '${it.dlcId}'"
+            }
             require(it.title.isNotBlank() && it.title.length <= MAX_TITLE) { "Invalid DLC title for ${it.dlcId}" }
         }
 
@@ -110,6 +112,8 @@ class GameDlcService(
     }
 
     companion object {
+        /** DLC the store does not list can be added by name. Their IDs are generated from the title. */
+        private val CUSTOM_DLC_ID = Regex("^custom:[a-z0-9-]{1,100}$")
         private const val MAX_INCLUDED = 500
         private const val MAX_TITLE = 255
         private const val MAX_DEPTH = 4

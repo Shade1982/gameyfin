@@ -105,4 +105,10 @@ class StoreSearchTest {
 
         assertEquals(listOf("The Witcher 3: Wild Hunt"), filterByTitleRelevance("Witcher III", results).map { it.title })
     }
+
+    @Test
+    fun `search queries lose punctuation but keep apostrophes`() {
+        assertEquals("The Witcher 3 Wild Hunt Remastered", normalizeSearchQuery("The Witcher 3: Wild Hunt — Remastered"))
+        assertEquals("Assassin's Creed", normalizeSearchQuery("  Assassin's Creed! "))
+    }
 }

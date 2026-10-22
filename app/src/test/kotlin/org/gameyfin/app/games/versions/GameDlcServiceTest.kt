@@ -87,4 +87,23 @@ class GameDlcServiceTest {
         assertFailsWith<IllegalArgumentException> { service.setIncluded(5, listOf(IncludedDlcDto("abc", "Pack", false))) }
         assertFailsWith<IllegalArgumentException> { service.setIncluded(5, listOf(IncludedDlcDto("1", " ", false))) }
     }
+
+    @Test
+    fun `custom DLC that the store does not list is stored, malformed custom IDs are rejected`() {
+        val link = GameStoreLink(5, 10, GameStore.GOG, "100")
+        every { linkRepository.findById(5) } returns Optional.of(link)
+        every { linkRepository.findAllByGameId(10) } returns listOf(link)
+        every { dlcRepository.findAllByLinkId(5) } returns emptyList()
+        every { dlcRepository.findAllByLinkIdIn(listOf(5L)) } returns emptyList()
+        val saved = slot<GameIncludedDlc>()
+        every { dlcRepository.save(capture(saved)) } answers { firstArg() }
+
+        assertFailsWith<IllegalArgumentException> {
+            service.setIncluded(5, listOf(IncludedDlcDto("custom:Not Valid", "Evil", false)))
+        }
+
+        service.setIncluded(5, listOf(IncludedDlcDto("custom:songs-of-the-past", "Songs of the Past", false)))
+
+        assertEquals("custom:songs-of-the-past", saved.captured.dlcId)
+    }
 }
