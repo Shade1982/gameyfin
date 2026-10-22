@@ -2,7 +2,7 @@ import {CoverRow} from "Frontend/components/general/covers/CoverRow";
 import {useSnapshot} from "valtio/react";
 import {libraryState} from "Frontend/state/LibraryState";
 import {gameState} from "Frontend/state/GameState";
-import React, {useMemo} from "react";
+import React, {useEffect, useMemo} from "react";
 import LibrarySummaryDto from "Frontend/generated/org/gameyfin/app/libraries/dto/LibrarySummaryDto";
 import {useGamesByCollectionId} from "Frontend/state/derived";
 import {collectionState} from "Frontend/state/CollectionState";
@@ -12,6 +12,7 @@ import {Link, Spinner} from "@heroui/react";
 import {CaretRightIcon, FolderOpenIcon} from "@phosphor-icons/react";
 import {useAuth} from "Frontend/util/auth";
 import {isAdmin} from "Frontend/util/utils";
+import {configState, initializeConfigState} from "Frontend/state/ConfigState";
 
 export default function HomeView() {
     const auth = useAuth();
@@ -20,6 +21,16 @@ export default function HomeView() {
     const gamesState = useSnapshot(gameState);
     const gamesByLibrary = gamesState.gamesByLibraryId;
     const gamesByCollection = useGamesByCollectionId();
+
+    const config = useSnapshot(configState);
+
+    useEffect(() => {
+        initializeConfigState();
+    }, []);
+
+    const motdValue = config.state["motd"]?.value;
+    const motd = typeof motdValue === "string" ? motdValue : undefined;
+    const showMotd = !!motd?.trim() && config.state["motd-enabled"]?.value !== false;
 
     const filteredAndSortedLibraries = useMemo(() =>
             librariesState.sorted
@@ -77,31 +88,46 @@ export default function HomeView() {
 
     if (hasNoContent) {
         return (
-            <div className="flex flex-col items-center justify-center h-[70vh] text-center gap-4">
-                <FolderOpenIcon size={64} className="text-muted"/>
-                <p className="text-xl font-semibold text-muted">Nothing here yet</p>
-                {isAdmin(auth) ? (
-                    <>
-                        <p className="text-muted max-w-lg">
-                            Get started by adding libraries and games in the{" "}
-                            <Link href="/administration/games" className="underline">
-                                administration panel
-                            </Link>.
-                        </p>
-                    </>
-                ) : (
-                    <>
-                        <p className="text-muted max-w-md">
-                            There is currently no content available. Check back later!
-                        </p>
-                    </>
-                )}
-            </div>
+            <>
+                {showMotd &&
+                    <div className="mb-4 max-w-6xl mx-auto rounded-lg border border-default-200 p-4">
+                        <div className="text-justify" dangerouslySetInnerHTML={{__html: motd!}}/>
+                    </div>
+                }
+
+                <div className="flex flex-col items-center justify-center h-[70vh] text-center gap-4">
+                    <FolderOpenIcon size={64} className="text-muted"/>
+                    <p className="text-xl font-semibold text-muted">Nothing here yet</p>
+                    {isAdmin(auth) ? (
+                        <>
+                            <p className="text-muted max-w-lg">
+                                Get started by adding libraries and games in the{" "}
+                                <Link href="/administration/games" className="underline">
+                                    administration panel
+                                </Link>.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-muted max-w-md">
+                                There is currently no content available. Check back later!
+                            </p>
+                        </>
+                    )}
+                </div>
+            </>
         );
     }
 
     return (
         <div className="w-full">
+
+            {showMotd &&
+                <div className="mb-4 max-w-6xl mx-auto rounded-lg border border-default-200 p-4">
+                    <div className="text-justify" dangerouslySetInnerHTML={{__html: motd!}}/>
+                </div>
+            }
+
             <div className="flex flex-col gap-4">
                 {(filteredAndSortedLibraries.length + filteredAndSortedCollections.length > 0) &&
                     <div className="flex flex-col gap-2">

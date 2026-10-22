@@ -373,6 +373,25 @@ sealed class ConfigProperties<T : Serializable>(
             )
         }
     }
+
+    /** Dashboard Server Message */
+    sealed class General {
+        data object MessageOfTheDayEnabled : ConfigProperties<Boolean>(
+            Boolean::class,
+            "motd-enabled",
+            "Show Dashboard Server Message",
+            "Show the message on the dashboard. Ignored if the message is empty.",
+            true
+        )
+
+        data object MessageOfTheDay : ConfigProperties<String>(
+            String::class,
+            "motd",
+            "Dashboard Server Message",
+            "Message shown to all users on the dashboard.",
+            ""
+        )
+    }
 }
 
 @Suppress("EnumEntryName")
