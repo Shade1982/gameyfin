@@ -113,6 +113,26 @@ class GameVersionStatusServiceTest {
     }
 
     @Test
+    fun `detects GOG version from offline installer file name`(@TempDir tempDir: Path) {
+        val gameDir = Files.createDirectories(tempDir.resolve("GOG Games/Drive Rally"))
+        Files.createFile(gameDir.resolve("setup_drive_rally_1.5.1_(64bit)_(93251).exe"))
+        val link = GameStoreLink(1, 10, GameStore.GOG, "987")
+        val versions = listOf(StoreVersion(11, 1, "59781019998704278", "", "1.4.8.0"), StoreVersion(12, 1, "59972322423858091", "", "1.5.1"))
+        every { linkRepository.findById(1) } returns Optional.of(link)
+        every { stateRepository.findById(1) } returns Optional.empty()
+        every { gameRepository.findById(10) } returns Optional.of(
+            Game(library = mockk<Library>(), metadata = GameMetadata(path = gameDir.toString()))
+        )
+        every { versionRepository.findAllByLinkId(1) } returns versions
+        every { stateRepository.save(any<GameVersionState>()) } answers { firstArg() }
+
+        val result = service.detectInstalledVersion(1)
+
+        assertTrue(result.detected)
+        assertEquals("1.5.1", result.installedVersionLabel)
+    }
+
+    @Test
     fun `preview detects the installed version without saving it`(@TempDir tempDir: Path) {
         val gameDir = Files.createDirectories(tempDir.resolve("GOG Games/Test"))
         Files.writeString(gameDir.resolve("goggame-987.info"), """{"buildId":"gog-build-5"}""")

@@ -89,7 +89,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
     }, []);
 
     /** Fetches the versions of a store product that is not linked yet, without saving anything. */
-    const loadPreview = useCallback(async (key: string, store: GameStore, storeAppId: string) => {
+    const loadPreview = useCallback(async (key: string, store: GameStore, storeAppId: string, overrideSelection = false) => {
         update(key, {loadingVersions: true});
         try {
             const preview = await GameVersionEndpoint.previewVersions(gameId, store, storeAppId);
@@ -103,18 +103,20 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
             setLinks((current) => current.map((link) => {
                 if (link.key !== key) return link;
                 const detectedId = preview.detectedIndex == null ? undefined : -(preview.detectedIndex + 1);
-                const keepSelection = link.installedVersionId !== undefined && !link.detected;
+                const keepSelection = link.installedVersionId !== undefined && (overrideSelection ? detectedId === undefined : !link.detected);
                 return {
                     ...link,
                     versions,
                     previewBuilds: preview.versions.map(({buildId, branch}) => ({buildId, branch})),
                     installedVersionId: keepSelection ? link.installedVersionId : detectedId,
-                    detected: keepSelection ? false : detectedId !== undefined,
+                    detected: keepSelection ? link.detected : detectedId !== undefined,
                     loadingVersions: false,
                 };
             }));
             if (preview.detectedIndex != null) {
                 toast.success("Installed version detected", {description: preview.versions[preview.detectedIndex].label});
+            } else if (overrideSelection) {
+                toast.info("Version not detected", {description: "No installed version matching the cached builds was detected"});
             }
         } catch (error) {
             update(key, {loadingVersions: false});
@@ -164,7 +166,11 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
 
     const detect = useCallback(async (key: string) => {
         const link = links.find((candidate) => candidate.key === key);
-        if (link?.linkId === undefined) return;
+        if (!link) return;
+        if (link.linkId === undefined) {
+            await loadPreview(link.key, link.store, link.storeAppId, true);
+            return;
+        }
         setPendingKey(key);
         try {
             const result = await GameVersionEndpoint.previewDetection(link.linkId);
@@ -179,12 +185,16 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         } finally {
             setPendingKey(undefined);
         }
-    }, [links, update]);
+    }, [links, update, loadPreview]);
 
     /** Refreshing only updates the cached store versions, so it takes effect immediately. */
     const refresh = useCallback(async (key: string) => {
         const link = links.find((candidate) => candidate.key === key);
-        if (link?.linkId === undefined) return;
+        if (!link) return;
+        if (link.linkId === undefined) {
+            await loadPreview(link.key, link.store, link.storeAppId, true);
+            return;
+        }
         setPendingKey(key);
         try {
             await GameVersionEndpoint.refreshVersions(link.linkId);

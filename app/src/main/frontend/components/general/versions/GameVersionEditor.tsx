@@ -80,12 +80,10 @@ export default function GameVersionEditor({gameTitle, editor}: GameVersionEditor
                         )}
 
                         <div className="flex flex-wrap items-center gap-2">
-                            {!isNew && (
-                                <Button size="sm" variant="outline" isPending={busy} isDisabled={busy}
-                                        onPress={() => void editor.detect(link.key)}>
-                                    Detect
-                                </Button>
-                            )}
+                            <Button size="sm" variant="outline" isPending={busy} isDisabled={busy || link.loadingVersions}
+                                    onPress={() => void editor.detect(link.key)}>
+                                Detect
+                            </Button>
                             <Button size="sm" variant="outline" isDisabled={busy || link.loadingVersions}
                                     onPress={() => isNew ? editor.refreshPreview(link.key) : void editor.refresh(link.key)}>
                                 Refresh
