@@ -4,10 +4,20 @@ import IncludedDlcPicker from "Frontend/components/general/versions/IncludedDlcP
 import StoreSearchPicker, {STORE_NAMES} from "Frontend/components/general/versions/StoreSearchPicker";
 import {GameVersionEditorState} from "Frontend/components/general/versions/useGameVersionEditor";
 
-/** "Stellaris: Anniversary Edition" for the game "Stellaris" suggests "Anniversary Edition". */
-export function suggestEdition(gameTitle: string, storeTitle?: string): string {
-    if (!storeTitle || !storeTitle.toLowerCase().startsWith(gameTitle.toLowerCase())) return "";
-    return storeTitle.slice(gameTitle.length).replace(/^[\s:\-–—]+/, "").trim();
+const EDITION_PATTERNS = [
+    /\b(?:Game of the Year|GOTY|Special|Anniversary|Definitive|Enhanced|Complete|Ultimate|Deluxe|Legendary|Gold|Premium|Platinum|Collector['’]?s|Standard)\s+Edition\b/i,
+    /\bDirector['’]s Cut\b/i,
+    /\bRemaster(?:ed)?\b/i,
+];
+
+/** Suggests an edition label from well-known edition terms in the store title, e.g. "Anniversary Edition". */
+export function suggestEdition(storeTitle?: string): string {
+    if (!storeTitle) return "";
+    for (const pattern of EDITION_PATTERNS) {
+        const match = storeTitle.match(pattern);
+        if (match) return match[0];
+    }
+    return "";
 }
 
 interface GameVersionEditorProps {
@@ -136,7 +146,7 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                     initialQuery={gameTitle}
                     linkedKeys={linkedKeys}
                     onPick={(store, storeAppId, title) =>
-                        editor.addLink(store, storeAppId, title, suggestEdition(gameTitle, title))}
+                        editor.addLink(store, storeAppId, title, suggestEdition(title))}
                     onClose={() => setAdding(false)}
                 />
             ) : (
