@@ -21,6 +21,7 @@ import remarkBreaks from "remark-breaks";
 import ChipList from "Frontend/components/general/ChipList";
 import {collectionState} from "Frontend/state/CollectionState";
 import {GameMetadataAdminDto} from "Frontend/dtos/GameDtos";
+import GameVersionDetails from "Frontend/components/general/versions/GameVersionDetails";
 
 export default function GameView() {
     const {gameId} = useParams();
@@ -325,6 +326,7 @@ export default function GameView() {
                                         </td>
                                     </tr>
                                 }
+                                <GameVersionDetails gameId={game.id} refreshKey={editGameModal.isOpen}/>
                                 </tbody>
                             </table>
                         </div>
