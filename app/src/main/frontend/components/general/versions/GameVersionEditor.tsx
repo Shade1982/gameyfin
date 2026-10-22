@@ -1,15 +1,17 @@
 import React, {useState} from "react";
 import {Button, Chip, ListBox, Select, Spinner} from "@heroui/react";
+import IncludedDlcPicker from "Frontend/components/general/versions/IncludedDlcPicker";
 import StoreSearchPicker, {STORE_NAMES} from "Frontend/components/general/versions/StoreSearchPicker";
 import {GameVersionEditorState} from "Frontend/components/general/versions/useGameVersionEditor";
 
 interface GameVersionEditorProps {
+    gameId: number;
     gameTitle: string;
     editor: GameVersionEditorState;
 }
 
 /** Edits are staged in [editor] and written when the metadata dialog is saved. */
-export default function GameVersionEditor({gameTitle, editor}: GameVersionEditorProps) {
+export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersionEditorProps) {
     const [adding, setAdding] = useState(false);
     const {links, loading, pendingKey} = editor;
     const linkedKeys = new Set(links.map((link) => `${link.store}:${link.storeAppId}`));
@@ -104,6 +106,9 @@ export default function GameVersionEditor({gameTitle, editor}: GameVersionEditor
                                 </span>
                             )}
                         </div>
+
+                        <IncludedDlcPicker gameId={gameId} link={link}
+                                           onChange={(dlc) => editor.setDlc(link.key, dlc)}/>
                     </div>
                 );
             })}

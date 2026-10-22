@@ -1618,3 +1618,54 @@ databaseChangeLog:
             columns:
               - column:
                   name: GAME_ID
+
+  - changeSet:
+      id: 2.6.0-game-included-dlc
+      author: grimsi
+      comment: >
+        DLC that is included in the installer(s) Gameyfin provides for a game. Kept separate from the GAME table
+        and attached to a store link, so it follows the same store product the versions come from.
+      changes:
+        - createSequence:
+            sequenceName: GAME_INCLUDED_DLC_SEQ
+            incrementBy: 50
+        - createTable:
+            tableName: GAME_INCLUDED_DLC
+            columns:
+              - column:
+                  name: ID
+                  type: bigint
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: LINK_ID
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: DLC_ID
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: TITLE
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: SOURCE
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: GAME_INCLUDED_DLC
+            baseColumnNames: LINK_ID
+            referencedTableName: GAME_STORE_LINK
+            referencedColumnNames: ID
+            constraintName: FK_GAME_INCLUDED_DLC_LINK
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: GAME_INCLUDED_DLC
+            columnNames: LINK_ID, DLC_ID
+            constraintName: UQ_GAME_INCLUDED_DLC

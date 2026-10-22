@@ -122,6 +122,7 @@ class DatabaseBackupIntegrationTest {
             s.execute("INSERT INTO STORE_VERSION (ID, LINK_ID, BUILD_ID, BRANCH, LABEL, RELEASED_AT) VALUES (301, 201, '1', '', '1.0', TIMESTAMP '2024-03-04 05:06:07')")
             s.execute("INSERT INTO STORE_VERSION (ID, LINK_ID, BUILD_ID, BRANCH, LABEL) VALUES (302, 201, '2', 'next-gen', '1.1')")
             s.execute("INSERT INTO GAME_VERSION_STATE (LINK_ID, INSTALLED_VERSION_ID, SOURCE) VALUES (201, 301, 'MANUAL')")
+            s.execute("INSERT INTO GAME_INCLUDED_DLC (ID, LINK_ID, DLC_ID, TITLE, SOURCE) VALUES (401, 201, '1256837418', 'Phantom Liberty', 'AUTO')")
         }
     }
 
@@ -167,6 +168,7 @@ class DatabaseBackupIntegrationTest {
     private fun assertVersionSequencesWork(dataSource: DataSource, nextValueSql: (String) -> String) {
         assertTrue(query(dataSource, nextValueSql("GAME_STORE_LINK_SEQ")) - 49 > 201)
         assertTrue(query(dataSource, nextValueSql("STORE_VERSION_SEQ")) - 49 > 302)
+        assertTrue(query(dataSource, nextValueSql("GAME_INCLUDED_DLC_SEQ")) - 49 > 401)
     }
 
     private fun Connection.changeLogRows(): Int =

@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {toast} from "@heroui/react";
-import {GameStoreLinkEndpoint, GameVersionEndpoint} from "Frontend/generated/endpoints";
+import {GameDlcEndpoint, GameStoreLinkEndpoint, GameVersionEndpoint} from "Frontend/generated/endpoints";
+import IncludedDlcDto from "Frontend/generated/org/gameyfin/app/games/versions/IncludedDlcDto";
 import GameStore from "Frontend/generated/org/gameyfin/app/games/versions/GameStore";
 
 type VersionStatus = Awaited<ReturnType<typeof GameVersionEndpoint.getStatus>>[number];
@@ -24,6 +25,9 @@ export interface StagedLink {
     /** The staged library version was detected instead of selected by hand. */
     detected: boolean;
     removed: boolean;
+    /** DLC that is included in the installer(s) for this store product. */
+    dlc: IncludedDlcDto[];
+    originalDlc: IncludedDlcDto[];
     /** Versions of a link that is not saved yet use negative IDs, which index into this list. */
     previewBuilds?: { buildId: string; branch: string }[];
     loadingVersions?: boolean;
@@ -33,7 +37,11 @@ function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : "Please try again.";
 }
 
-function fromStatus(status: VersionStatus): StagedLink {
+const sameDlc = (a: IncludedDlcDto[], b: IncludedDlcDto[]) =>
+    a.length === b.length
+    && a.every((item) => b.some((other) => other.dlcId === item.dlcId && other.detected === item.detected));
+
+function fromStatus(status: VersionStatus, dlc: IncludedDlcDto[] = []): StagedLink {
     return {
         key: `link-${status.linkId}`,
         linkId: status.linkId,
@@ -47,7 +55,18 @@ function fromStatus(status: VersionStatus): StagedLink {
         originalInstalledVersionId: status.installedVersionId,
         detected: status.installedVersionSource === "AUTO",
         removed: false,
+        dlc,
+        originalDlc: dlc,
     };
+}
+
+async function loadLinks(gameId: number): Promise<StagedLink[]> {
+    const [statuses, included] = await Promise.all([
+        GameVersionEndpoint.getStatus(gameId),
+        GameDlcEndpoint.getIncluded(gameId).catch(() => []),
+    ]);
+    return statuses.map((status) =>
+        fromStatus(status, included.find((entry) => entry.linkId === status.linkId)?.dlc ?? []));
 }
 
 export function useGameVersionEditor(gameId: number, isOpen: boolean) {
@@ -61,9 +80,9 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         if (!isOpen) return;
         let cancelled = false;
         setLoading(true);
-        GameVersionEndpoint.getStatus(gameId)
-            .then((statuses) => {
-                if (!cancelled) setLinks(statuses.map(fromStatus));
+        loadLinks(gameId)
+            .then((loaded) => {
+                if (!cancelled) setLinks(loaded);
             })
             .catch((error) => toast.danger("Could not load game versions", {description: errorMessage(error)}))
             .finally(() => {
@@ -82,6 +101,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
             : link.removed
             || link.installedVersionId !== link.originalInstalledVersionId
             || link.tracked !== link.originalTracked
+            || !sameDlc(link.dlc, link.originalDlc)
     ), [links]);
 
     const update = useCallback((key: string, change: Partial<StagedLink>) => {
@@ -140,7 +160,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         setLinks((current) => [...current, {
             key, store, storeAppId, title,
             tracked: false, originalTracked: false,
-            versions: [], detected: false, removed: false,
+            versions: [], detected: false, removed: false, dlc: [], originalDlc: [],
         }]);
         void loadPreview(key, store, storeAppId);
     }, [links, loadPreview, update]);
@@ -158,6 +178,10 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
 
     const setInstalledVersion = useCallback((key: string, versionId?: number) => {
         update(key, {installedVersionId: versionId, detected: false});
+    }, [update]);
+
+    const setDlc = useCallback((key: string, dlc: IncludedDlcDto[]) => {
+        update(key, {dlc});
     }, [update]);
 
     const makePrimary = useCallback((key: string) => {
@@ -234,6 +258,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
                         description: errorMessage(error) + " Use Refresh to try again.",
                     });
                 }
+                if (link.dlc.length > 0) await GameDlcEndpoint.setIncluded(created.id, link.dlc);
             }
 
             const existing = links.filter((l) => l.linkId !== undefined && !l.removed);
@@ -243,16 +268,20 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
             for (const link of existing.filter((l) => l.installedVersionId !== l.originalInstalledVersionId)) {
                 await GameVersionEndpoint.setInstalledVersion(link.linkId!, link.installedVersionId, link.detected);
             }
+
+            for (const link of existing.filter((l) => !sameDlc(l.dlc, l.originalDlc))) {
+                await GameDlcEndpoint.setIncluded(link.linkId!, link.dlc);
+            }
         } catch (error) {
             toast.danger("Could not save store versions", {description: errorMessage(error)});
-            setLinks((await GameVersionEndpoint.getStatus(gameId)).map(fromStatus));
+            setLinks(await loadLinks(gameId));
             throw error;
         }
     }, [dirty, gameId, links]);
 
     return {
         links: visibleLinks, loading, pendingKey, dirty,
-        addLink, removeLink, setInstalledVersion, makePrimary, detect, refresh, refreshPreview, apply,
+        addLink, removeLink, setInstalledVersion, setDlc, makePrimary, detect, refresh, refreshPreview, apply,
     };
 }
 
