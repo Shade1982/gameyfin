@@ -33,6 +33,26 @@ For each store link, manage the DLC included with your copy. Gameyfin can sugges
 library, and you can adjust the selection or add DLC that the store does not list. Game details show the edition,
 version, and included DLC.
 
+#### Screenshots
+
+Open **Store versions** in the game metadata editor and choose **Add store**, then pick Steam, GOG, or Epic Games and
+search for the game.
+
+![Store versions section with no store linked](assets/screenshots/editions-dlc/store-versions-empty.png)
+
+![Choosing a store](assets/screenshots/editions-dlc/store-picker.png)
+
+Each linked store has an **Extras** section for DLC, edition upgrades, and bonus material that come with your copy. Use
+**Detect extras** to suggest them from your files, or add extras the store does not list.
+
+![Managing extras for a store link](assets/screenshots/editions-dlc/extras-editor.png)
+
+Game details show the store version with an update status, plus the selected extras.
+
+![GOG version in game details](assets/screenshots/editions-dlc/details-gog-version.png)
+
+![Steam version and edition upgrades in game details](assets/screenshots/editions-dlc/details-steam-extras.png)
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).
