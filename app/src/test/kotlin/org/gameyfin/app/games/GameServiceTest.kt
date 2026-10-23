@@ -81,7 +81,8 @@ class GameServiceTest {
             companyService,
             userService,
             imageService,
-            filesystemService
+            filesystemService,
+            mockk(relaxed = true)
         )
 
         library = mockk(relaxed = true) {
@@ -618,6 +619,69 @@ class GameServiceTest {
         assertNotNull(result)
         assertEquals(replaceGameId, result.id)
         assertEquals(existingGame.createdAt, result.createdAt)
+    }
+
+    @Test
+    fun `matchManually should only fill missing fields from supplement`() {
+        val path = Path.of("/test/game.exe")
+        val originalIds = mapOf(
+            "org.gameyfin.app.games.TestProvider" to ExternalProviderIdDto("main-plugin", "1")
+        )
+        val supplementIds = mapOf(
+            "org.gameyfin.app.games.TestSupplementProvider" to ExternalProviderIdDto("base-plugin", "2")
+        )
+
+        val mainProvider = spyk(
+            TestProvider(
+                org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                    originalId = "1",
+                    title = "Game Ultimate Edition",
+                    release = Instant.parse("2020-01-01T00:00:00Z"),
+                    platforms = setOf(Platform.PC_MICROSOFT_WINDOWS)
+                )
+            )
+        )
+        val baseProvider = spyk(
+            TestSupplementProvider(
+                org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                    originalId = "2",
+                    title = "Game",
+                    description = "Base description",
+                    release = Instant.parse("2010-01-01T00:00:00Z"),
+                    platforms = setOf(Platform.PC_MICROSOFT_WINDOWS)
+                )
+            )
+        )
+
+        val mainEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "main-plugin"
+            every { priority } returns 5
+        }
+        // Higher priority than the main plugin: must still not override anything the main result provides
+        val baseEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "base-plugin"
+            every { priority } returns 1
+        }
+
+        every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(
+            mainProvider,
+            baseProvider
+        )
+        every { pluginService.getPluginManagementEntry(mainProvider.javaClass) } returns mainEntry
+        every { pluginService.getPluginManagementEntry(baseProvider.javaClass) } returns baseEntry
+        every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
+
+        val result = gameService.matchManually(
+            originalIds, path, library, null, persist = false, supplementIds = supplementIds
+        )
+
+        assertNotNull(result)
+        assertEquals("Game Ultimate Edition", result.title)
+        assertEquals(Instant.parse("2020-01-01T00:00:00Z"), result.release)
+        assertEquals("Base description", result.summary)
+        assertEquals(mainEntry, (result.metadata.fields["title"]?.source as GameFieldPluginSource).plugin)
+        assertEquals(baseEntry, (result.metadata.fields["summary"]?.source as GameFieldPluginSource).plugin)
+        assertEquals(setOf(mainEntry), result.metadata.originalIds.keys)
     }
 
     @Test
@@ -2398,4 +2462,17 @@ class TestProvider(private val metadataToReturn: org.gameyfin.pluginapi.gamemeta
     ): List<org.gameyfin.pluginapi.gamemetadata.GameMetadata> {
         return listOf(metadataToReturn)
     }
+}
+
+class TestSupplementProvider(private val metadataToReturn: org.gameyfin.pluginapi.gamemetadata.GameMetadata) :
+    GameMetadataProvider {
+    override val supportedPlatforms: Set<Platform> = setOf(Platform.PC_MICROSOFT_WINDOWS)
+
+    override fun fetchById(id: String) = metadataToReturn
+
+    override fun fetchByTitle(
+        gameTitle: String,
+        platformFilter: Set<Platform>,
+        maxResults: Int
+    ) = listOf(metadataToReturn)
 }

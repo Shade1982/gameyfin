@@ -25,6 +25,52 @@ user-friendly interface.
 Download your game files directly from the web UI, share your library with friends, and enjoy your games like never
 before.
 
+### Improved metadata search
+
+This branch improves the manual metadata match dialog. First, you can combine two search results. Sometimes the same game shows
+up on two lines, for example when GOG and Steam list different release years. Click **Combine with another result** on
+one line, then pick the second line. The provider IDs of both are used together and merged with the usual plugin
+priorities, as if Gameyfin had merged them itself.
+
+* Combining is always a manual action. Gameyfin never suggests or links results on its own, so similarly named games
+  (such as Mass Effect and Mass Effect Legendary Edition) are not mixed up.
+* Each provider supplies one ID per game, so results that share a provider with the first one are disabled.
+* No backend, API or database changes for combining. Only the match dialog changes.
+
+#### Screenshots
+
+Here the same game is listed on two lines, because one source has no release year. Each line has a **Combine** button
+(link icon), an **Add base game** button (plus icon) and the usual **Pick** button (arrow).
+
+![One game split over two search results](assets/screenshots/improved-metadata-search/split-results.png)
+
+After you press **Combine** on one line, that line and every line from the same source are disabled. Pick the second
+line to use both together.
+
+![Combining two results](assets/screenshots/improved-metadata-search/combine-mode.png)
+
+#### Adding a base game to an edition
+
+Special editions often have very little metadata of their own (sometimes just one image and a description). Click
+**Select this, then add a base game for missing metadata** on the edition (or on a combined edition), then pick the base
+game, using **Combine with another result** again if it is split over several lines.
+
+* The edition's metadata always wins. The base game only fills fields the edition leaves empty, such as the description
+  or screenshots. Nothing is overwritten, whatever the plugin priorities are.
+* If the base game has no metadata either, nothing is added. Gameyfin never invents metadata.
+* The base game is stored in its own table (`GAME_SUPPLEMENT`) and re-applied when metadata is refreshed. Existing tables
+  are not changed. Matching a game again without a base game removes it.
+
+##### Screenshots
+
+Search for the edition, then press the plus icon on the edition's line.
+
+![Edition and base game in the search results](assets/screenshots/improved-metadata-search/edition-results.png)
+
+The edition stays selected and you pick the base game from the list.
+
+![Picking the base game](assets/screenshots/improved-metadata-search/pick-base-game.png)
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).

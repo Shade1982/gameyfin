@@ -28,6 +28,7 @@ import org.gameyfin.app.games.extensions.toDto
 import org.gameyfin.app.games.extensions.toDtos
 import org.gameyfin.app.games.extensions.toSummaryDto
 import org.gameyfin.app.games.repositories.GameRepository
+import org.gameyfin.app.games.supplements.GameSupplementService
 import org.gameyfin.app.libraries.entities.Library
 import org.gameyfin.app.media.Image
 import org.gameyfin.app.media.ImageService
@@ -61,7 +62,8 @@ class GameService(
     private val companyService: CompanyService,
     private val userService: UserService,
     private val imageService: ImageService,
-    private val filesystemService: FilesystemService
+    private val filesystemService: FilesystemService,
+    private val supplementService: GameSupplementService
 ) {
     companion object {
         private val log = KotlinLogging.logger {}
@@ -264,19 +266,18 @@ class GameService(
 
         val game = getById(game.id!!)
 
-        val originalIds: Map<String, ExternalProviderIdDto> = game.metadata.originalIds
-            .mapNotNull { (provider, originalId) ->
-                val providerId = pluginManager.getExtensions(provider.pluginId)
+        fun toProviderIds(idsByPluginId: Map<String, String>): Map<String, ExternalProviderIdDto> =
+            idsByPluginId.mapNotNull { (pluginId, originalId) ->
+                val providerId = pluginManager.getExtensions(pluginId)
                     .filterIsInstance<GameMetadataProvider>().firstOrNull()?.javaClass?.name
                 if (providerId == null) {
-                    log.debug { "Skipping unavailable metadata provider ${provider.pluginId} for game ${game.id}" }
+                    log.debug { "Skipping unavailable metadata provider $pluginId for game ${game.id}" }
                     return@mapNotNull null
                 }
-                val pluginId = provider.pluginId
-                val originalId = originalId
                 providerId to ExternalProviderIdDto(pluginId, originalId)
-            }
-            .toMap()
+            }.toMap()
+
+        val originalIds = toProviderIds(game.metadata.originalIds.mapKeys { it.key.pluginId })
 
         if (originalIds.isEmpty()) return null
 
@@ -286,7 +287,8 @@ class GameService(
             library = game.library,
             replaceGameId = game.id,
             persist = false,
-            refreshGame = game
+            refreshGame = game,
+            supplementIds = toProviderIds(supplementService.get(game.id!!))
         ) ?: return null
 
 
@@ -613,8 +615,16 @@ class GameService(
         path: Path,
         library: Library,
         replaceGameId: Long? = null,
-        persist: Boolean = true
-    ): Game? = matchByOriginalIds(originalIds, path, library, replaceGameId, persist)
+        persist: Boolean = true,
+        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
+    ): Game? = matchByOriginalIds(
+        originalIds,
+        path,
+        library,
+        replaceGameId,
+        persist,
+        supplementIds = supplementIds
+    )
 
     private fun matchByOriginalIds(
         originalIds: Map<String, ExternalProviderIdDto>,
@@ -622,18 +632,28 @@ class GameService(
         library: Library,
         replaceGameId: Long?,
         persist: Boolean,
-        refreshGame: Game? = null
+        refreshGame: Game? = null,
+        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
     ): Game? {
         val validResults = fetchMetadataByOriginalIds(originalIds, refreshGame).filterValuesNotNull()
         if (validResults.isEmpty()) return handleMissingMetadata(originalIds, refreshGame)
 
-        val mergedGame = mergeResults(validResults, path, library)
+        val supplementResults =
+            if (supplementIds.isEmpty()) emptyMap()
+            else fetchMetadataByOriginalIds(supplementIds, null).filterValuesNotNull()
+
+        val mergedGame = mergeResults(validResults, path, library, supplementResults)
         mergedGame.platforms = library.platforms.intersect(mergedGame.platforms.toSet()).toMutableList()
 
         replaceGame(replaceGameId, mergedGame)
         mergedGame.metadata.matchConfirmed = true
 
-        return if (persist) create(mergedGame) else mergedGame
+        if (!persist) return mergedGame
+
+        val savedGame = create(mergedGame)
+        // A manual match defines the supplement completely, so a match without one clears the previous one
+        savedGame.id?.let { supplementService.replace(it, supplementIds.values) }
+        return savedGame
     }
 
     private fun fetchMetadataByOriginalIds(
@@ -850,32 +870,39 @@ class GameService(
      * Merges the results from the metadata plugins into a single Game entity
      * The merging is done by taking the first non-null value for each field
      * The plugin with the highest possible priority is used as the source for each field
+     * Supplement results are applied last, so they only fill fields that the main results left empty
      */
     private fun mergeResults(
         results: Map<GameMetadataProvider, PluginApiMetadata?>,
         path: Path,
-        library: Library
+        library: Library,
+        supplements: Map<GameMetadataProvider, PluginApiMetadata?> = emptyMap()
     ): Game {
         val mergedGame = Game(path = path, library = library)
         val metadataMap = mutableMapOf<String, GameFieldMetadata>()
         val originalIdsMap = mutableMapOf<PluginManagementEntry, String>()
 
-        // Cache the plugin management entries for each provider
-        val providerToManagementEntry =
-            results.entries.associate { it.key to pluginService.getPluginManagementEntry(it.key.javaClass) }
+        fun apply(entries: Map<GameMetadataProvider, PluginApiMetadata?>, trackOriginalIds: Boolean) {
+            // Cache the plugin management entries for each provider
+            val providerToManagementEntry =
+                entries.entries.associate { it.key to pluginService.getPluginManagementEntry(it.key.javaClass) }
 
-        // Sort results by plugin priority
-        val sortedResults = results.entries.sortedByDescending {
-            providerToManagementEntry[it.key]?.priority
+            // Sort results by plugin priority
+            val sortedResults = entries.entries.sortedByDescending {
+                providerToManagementEntry[it.key]?.priority
+            }
+
+            sortedResults.forEach { (provider, metadata) ->
+                val sourcePlugin = providerToManagementEntry[provider] ?: return@forEach
+                if (metadata == null) return@forEach
+
+                if (trackOriginalIds) originalIdsMap[sourcePlugin] = metadata.originalId
+                applyMetadataFields(metadata, sourcePlugin, mergedGame, metadataMap)
+            }
         }
 
-        sortedResults.forEach { (provider, metadata) ->
-            val sourcePlugin = providerToManagementEntry[provider] ?: return@forEach
-            if (metadata == null) return@forEach
-
-            originalIdsMap[sourcePlugin] = metadata.originalId
-            applyMetadataFields(metadata, sourcePlugin, mergedGame, metadataMap)
-        }
+        apply(results, trackOriginalIds = true)
+        apply(supplements, trackOriginalIds = false)
 
         mergedGame.metadata.fields = metadataMap
         mergedGame.metadata.originalIds = originalIdsMap
