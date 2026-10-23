@@ -38,15 +38,13 @@ class EditionSuggestionService {
     }
 }
 
-private val STANDARD_EDITION_NAME = Regex("standard( edition)?", RegexOption.IGNORE_CASE)
-
 /** Edition names of a GOG product, without the standard edition, which is the unlabeled base product. */
 internal fun parseGogDbEditions(product: JsonNode): List<String> {
     val editions = product.path("editions")
     if (!editions.isArray) return emptyList()
     return (0 until editions.size())
         .map { editions.get(it).path("name").asText("").trim() }
-        .filter { it.isNotEmpty() && it.length <= GameStoreLinkService.MAX_EDITION_LENGTH && !STANDARD_EDITION_NAME.matches(it) }
+        .filter { it.isNotEmpty() && it.length <= GameStoreLinkService.MAX_EDITION_LENGTH && !GameStoreLinkService.STANDARD_EDITION.matches(it) }
         .distinct()
         .take(20)
 }

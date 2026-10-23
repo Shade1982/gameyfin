@@ -109,7 +109,7 @@ class GameStoreLinkServiceTest {
         service.setEdition(link.id!!, "   ")
         assertEquals(null, link.edition)
 
-        service.setEdition(link.id!!, "Standard Edition")
+        service.setEdition(link.id!!, "Base Edition")
         assertEquals(null, link.edition)
 
         assertFailsWith<IllegalArgumentException> { service.setEdition(link.id!!, "x".repeat(101)) }

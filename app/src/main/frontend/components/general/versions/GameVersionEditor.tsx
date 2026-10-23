@@ -207,7 +207,7 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                     }}
                     onClose={() => setAdding(false)}
                 />
-            ) : (
+            ) : links.length === 0 && (
                 <div>
                     <Button size="sm" variant="outline" onPress={() => setAdding(true)}>Add store</Button>
                 </div>

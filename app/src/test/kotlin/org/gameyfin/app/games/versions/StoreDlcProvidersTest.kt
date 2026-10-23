@@ -107,7 +107,7 @@ class StoreDlcProvidersTest {
     @Test
     fun `GOGDB edition names skip the standard edition`() {
         val product = mapper.readTree(
-            """{"editions":[{"name":"Standard Edition"},{"name":"Galaxy Edition"},{"name":" Starter Edition "},{"name":"Galaxy Edition"},{"name":""}]}"""
+            """{"editions":[{"name":"Standard Edition"},{"name":"Base Edition"},{"name":"Galaxy Edition"},{"name":" Starter Edition "},{"name":"Galaxy Edition"},{"name":""}]}"""
         )
 
         assertEquals(listOf("Galaxy Edition", "Starter Edition"), parseGogDbEditions(product))
