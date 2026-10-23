@@ -25,6 +25,14 @@ user-friendly interface.
 Download your game files directly from the web UI, share your library with friends, and enjoy your games like never
 before.
 
+### Editions, versions, and included DLC
+
+This branch builds on store version tracking for Steam, GOG, and Epic Games. Link store products to a game in its
+metadata editor, label editions such as Deluxe, and compare the latest store version with the version in your library.
+For each store link, manage the DLC included with your copy. Gameyfin can suggest matches from names in the game
+library, and you can adjust the selection or add DLC that the store does not list. Game details show the edition,
+version, and included DLC.
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).
