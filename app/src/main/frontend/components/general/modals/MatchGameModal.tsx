@@ -117,7 +117,8 @@ export default function MatchGameModal({
                                                 <Table.Body renderEmptyState={() => <p
                                                     className="text-center text-muted p-4">Your filter did not match any
                                                     games.</p>}
-                                                            items={searchResults}>
+                                                            items={searchResults}
+                                                            dependencies={[combineBase, isMatching]}>
                                                     {(item) => (
                                                         <Table.Row key={item.id}>
                                                             <Table.Cell>
