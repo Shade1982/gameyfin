@@ -1688,3 +1688,49 @@ databaseChangeLog:
               - column:
                   name: EDITION
                   type: varchar(100)
+
+  - changeSet:
+      id: 2.6.0-game-supplement
+      author: grimsi
+      comment: >
+        Metadata provider IDs manually attached to a game as a supplement (e.g. the base game of an edition).
+        Kept in its own table so existing game tables are untouched.
+      changes:
+        - createSequence:
+            sequenceName: GAME_SUPPLEMENT_SEQ
+            incrementBy: 50
+        - createTable:
+            tableName: GAME_SUPPLEMENT
+            columns:
+              - column:
+                  name: ID
+                  type: bigint
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: GAME_ID
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PLUGIN_ID
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ORIGINAL_ID
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: GAME_SUPPLEMENT
+            baseColumnNames: GAME_ID
+            referencedTableName: GAME
+            referencedColumnNames: ID
+            constraintName: FK_GAME_SUPPLEMENT_GAME
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: GAME_SUPPLEMENT
+            columnNames: GAME_ID, PLUGIN_ID
+            constraintName: UQ_GAME_SUPPLEMENT

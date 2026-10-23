@@ -27,7 +27,7 @@ before.
 
 ### Improved metadata search
 
-This branch lets you combine two metadata search results when you match a game manually. Sometimes the same game shows
+This branch improves the manual metadata match dialog. First, you can combine two search results. Sometimes the same game shows
 up on two lines, for example when GOG and Steam list different release years. Click **Combine with another result** on
 one line, then pick the second line. The provider IDs of both are used together and merged with the usual plugin
 priorities, as if Gameyfin had merged them itself.
@@ -35,7 +35,19 @@ priorities, as if Gameyfin had merged them itself.
 * Combining is always a manual action. Gameyfin never suggests or links results on its own, so similarly named games
   (such as Mass Effect and Mass Effect Legendary Edition) are not mixed up.
 * Each provider supplies one ID per game, so results that share a provider with the first one are disabled.
-* No backend, API or database changes. Only the match dialog changes.
+* No backend, API or database changes for combining. Only the match dialog changes.
+
+#### Adding a base game to an edition
+
+Special editions often have very little metadata of their own (sometimes just one image and a description). Click
+**Select this, then add a base game for missing metadata** on the edition (or on a combined edition), then pick the base
+game, using **Combine with another result** again if it is split over several lines.
+
+* The edition's metadata always wins. The base game only fills fields the edition leaves empty, such as the description
+  or screenshots. Nothing is overwritten, whatever the plugin priorities are.
+* If the base game has no metadata either, nothing is added. Gameyfin never invents metadata.
+* The base game is stored in its own table (`GAME_SUPPLEMENT`) and re-applied when metadata is refreshed. Existing tables
+  are not changed. Matching a game again without a base game removes it.
 
 ### Documentation
 

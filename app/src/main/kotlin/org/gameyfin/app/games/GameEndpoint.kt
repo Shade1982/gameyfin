@@ -64,11 +64,18 @@ class GameEndpoint(
         originalIds: Map<String, ExternalProviderIdDto>,
         path: String,
         libraryId: Long,
-        replaceGameId: Long?
+        replaceGameId: Long?,
+        supplementIds: Map<String, ExternalProviderIdDto>? = null
     ) {
         val library = libraryCoreService.getWithGamesAndIgnoredPaths(libraryId)
             ?: throw IllegalArgumentException("Library with id $libraryId not found")
-        val game = gameService.matchManually(originalIds, Path.of(path), library, replaceGameId)
+        val game = gameService.matchManually(
+            originalIds,
+            Path.of(path),
+            library,
+            replaceGameId,
+            supplementIds = supplementIds ?: emptyMap()
+        )
         if (game != null) {
             libraryCoreService.addGamesToLibrary(listOf(game), library, true)
         }

@@ -39,7 +39,7 @@ class GameMetadataRefreshTest {
     private val images = mockk<ImageService>()
     private val service = GameService(
         repository, pluginManager, pluginService, mockk<ConfigService>(), mockk<CompanyService>(),
-        mockk<UserService>(), images, mockk<FilesystemService>()
+        mockk<UserService>(), images, mockk<FilesystemService>(), mockk(relaxed = true)
     )
     private val entry = PluginManagementEntry("gog", enabled = true, priority = 1)
     private val originalId = "51142058780705891"
