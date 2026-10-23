@@ -25,6 +25,18 @@ user-friendly interface.
 Download your game files directly from the web UI, share your library with friends, and enjoy your games like never
 before.
 
+### Improved metadata search
+
+This branch lets you combine two metadata search results when you match a game manually. Sometimes the same game shows
+up on two lines, for example when GOG and Steam list different release years. Click **Combine with another result** on
+one line, then pick the second line. The provider IDs of both are used together and merged with the usual plugin
+priorities, as if Gameyfin had merged them itself.
+
+* Combining is always a manual action. Gameyfin never suggests or links results on its own, so similarly named games
+  (such as Mass Effect and Mass Effect Legendary Edition) are not mixed up.
+* Each provider supplies one ID per game, so results that share a provider with the first one are disabled.
+* No backend, API or database changes. Only the match dialog changes.
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).
