@@ -32,6 +32,24 @@ show the latest store version alongside the version in your library. You can sel
 refresh the store's version list, or ask Gameyfin to detect a matching version from local files. Detection uses store
 metadata such as Steam manifests, GOG build information and installer names, or Epic manifests when available.
 
+#### Screenshots
+
+Open **Store versions** in the game metadata editor and choose **Add store**.
+
+![Store versions section with no store linked](assets/screenshots/version-management/store-versions-empty.png)
+
+Pick a store (Steam, GOG, or Epic Games), search for the game, and add the match. You can also enter an ID or URL
+manually.
+
+![Choosing a store](assets/screenshots/version-management/store-picker.png)
+
+![Searching a store for a game](assets/screenshots/version-management/store-search.png)
+
+Select the library version from the store's version list, or use **Detect**, **Refresh**, and **Remove** on the linked
+store.
+
+![Selecting the library version](assets/screenshots/version-management/library-version-select.png)
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).
