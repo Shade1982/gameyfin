@@ -27,9 +27,19 @@ before.
 
 ### Server announcements
 
-This branch adds a configurable server message to the home page. In **Administration → System Management**, edit
+This branch adds a configurable server message to the home page. In **Administration → System**, edit
 **Server Message (HTML)** and use **Show Server Message** to control whether it appears above the library and collection
 sections. Leave the message empty or turn off the checkbox to hide it.
+
+![Empty Dashboard Server Message setting](assets/screenshots/announcements/admin-system-empty.png)
+
+Messages support HTML, for example `<strong>This is a test message...</strong>`.
+
+![Dashboard Server Message with HTML entered](assets/screenshots/announcements/admin-system-message.png)
+
+The message is then shown to all users on the home page.
+
+![Server message on the home page](assets/screenshots/announcements/home-message.png)
 
 ### Documentation
 
