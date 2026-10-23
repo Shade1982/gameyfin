@@ -31,11 +31,9 @@ This branch adds a configurable server message to the home page. In **Administra
 **Server Message (HTML)** and use **Show Server Message** to control whether it appears above the library and collection
 sections. Leave the message empty or turn off the checkbox to hide it.
 
-![Empty Dashboard Server Message setting](assets/screenshots/announcements/admin-system-empty.png)
+Messages support HTML, including inline styling.
 
-Messages support HTML, for example `<strong>This is a test message...</strong>`.
-
-![Dashboard Server Message with HTML entered](assets/screenshots/announcements/admin-system-message.png)
+![Dashboard Server Message setting on the System page](assets/screenshots/announcements/admin-system.png)
 
 The message is then shown to all users on the home page.
 
