@@ -120,4 +120,12 @@ class StoreSearchTest {
         )
         assertEquals("https://example.test/tall.jpg", epicThumbnailUrl("https://example.test/tall.jpg"))
     }
+
+    @Test
+    fun `Steam search keeps base games and unknown types but drops DLC and soundtracks`() {
+        val results = listOf("1", "2", "3", "4").map { StoreSearchResultDto(it, "T$it", null, null) }
+        val types = mapOf("1" to "game", "2" to "dlc", "3" to "music")
+
+        assertEquals(listOf("1", "4"), keepBaseGames(results) { types[it] }.map { it.id })
+    }
 }

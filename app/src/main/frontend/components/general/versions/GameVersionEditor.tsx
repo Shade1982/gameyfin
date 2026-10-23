@@ -156,6 +156,13 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                             </Select>
                         )}
 
+                        {!link.loadingVersions && link.edition.trim() !== "" && link.versions.length > 0 && (
+                            <p className="text-xs text-muted">
+                                Versions are those of the selected product. If this edition has no builds of its own,
+                                they come from its base game.
+                            </p>
+                        )}
+
                         {!link.loadingVersions && link.versions.length === 0 && (
                             <p className="text-sm text-muted">
                                 No versions are available yet. Use Refresh to try again.
