@@ -1658,6 +1658,12 @@ databaseChangeLog:
                   type: varchar(32)
                   constraints:
                     nullable: false
+              - column:
+                  name: KIND
+                  type: varchar(32)
+                  defaultValue: DLC
+                  constraints:
+                    nullable: false
         - addForeignKeyConstraint:
             baseTableName: GAME_INCLUDED_DLC
             baseColumnNames: LINK_ID

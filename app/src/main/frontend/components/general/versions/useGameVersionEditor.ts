@@ -42,7 +42,7 @@ function errorMessage(error: unknown) {
 
 const sameDlc = (a: IncludedDlcDto[], b: IncludedDlcDto[]) =>
     a.length === b.length
-    && a.every((item) => b.some((other) => other.dlcId === item.dlcId && other.detected === item.detected));
+    && a.every((item) => b.some((other) => other.dlcId === item.dlcId && other.detected === item.detected && other.kind === item.kind));
 
 function fromStatus(status: VersionStatus, dlc: IncludedDlcDto[] = []): StagedLink {
     return {

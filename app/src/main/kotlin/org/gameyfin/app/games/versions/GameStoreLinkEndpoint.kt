@@ -17,7 +17,10 @@ fun GameStoreLink.toDto() = GameStoreLinkDto(id!!, gameId, store, storeAppId, tr
 
 @Endpoint
 @RolesAllowed(Role.Names.ADMIN)
-class GameStoreLinkEndpoint(private val linkService: GameStoreLinkService) {
+class GameStoreLinkEndpoint(
+    private val linkService: GameStoreLinkService,
+    private val editionSuggestions: EditionSuggestionService
+) {
 
     fun getLinks(gameId: Long): List<GameStoreLinkDto> = linkService.getLinks(gameId).map { it.toDto() }
 
@@ -29,4 +32,7 @@ class GameStoreLinkEndpoint(private val linkService: GameStoreLinkService) {
     fun setTracked(linkId: Long) = linkService.setTracked(linkId)
 
     fun setEdition(linkId: Long, edition: String?) = linkService.setEdition(linkId, edition)
+
+    fun getEditionSuggestions(store: GameStore, storeAppId: String): List<String> =
+        editionSuggestions.suggest(store, storeAppId)
 }

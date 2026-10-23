@@ -9,9 +9,9 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
-data class StoreDlcDto(val dlcId: String, val title: String)
+data class StoreDlcDto(val dlcId: String, val title: String, val kind: DlcKind = DlcKind.DLC)
 
-data class IncludedDlcDto(val dlcId: String, val title: String, val detected: Boolean)
+data class IncludedDlcDto(val dlcId: String, val title: String, val detected: Boolean, val kind: DlcKind = DlcKind.DLC)
 
 data class GameIncludedDlcDto(val linkId: Long, val store: GameStore, val dlc: List<IncludedDlcDto>)
 
@@ -42,14 +42,14 @@ class GameDlcService(
                 store = link.store,
                 dlc = byLink[link.id].orEmpty()
                     .sortedBy { it.title.lowercase() }
-                    .map { IncludedDlcDto(it.dlcId, it.title, it.source == LinkSource.AUTO) }
+                    .map { IncludedDlcDto(it.dlcId, it.title, it.source == LinkSource.AUTO, it.kind) }
             )
         }
     }
 
     /** The DLC the store offers for a product, which can be picked as included. */
     fun getCandidates(store: GameStore, storeAppId: String): List<StoreDlcDto> =
-        candidates(store, storeAppId).map { StoreDlcDto(it.dlcId, it.title) }
+        candidates(store, storeAppId).map { StoreDlcDto(it.dlcId, it.title, it.kind) }
 
     /** Suggests the DLC that is present in the folder of the game, without saving anything. */
     fun detect(gameId: Long, store: GameStore, storeAppId: String): List<StoreDlcDto> {
@@ -59,7 +59,7 @@ class GameDlcService(
         if (candidates.isEmpty()) return emptyList()
         val names = collectNames(Path.of(game.metadata.path))
         return DlcInstallerMatcher.match(game.title.orEmpty(), names, candidates)
-            .map { StoreDlcDto(it.dlcId, it.title) }
+            .map { StoreDlcDto(it.dlcId, it.title, it.kind) }
     }
 
     /** Replaces the included DLC of a link. */
@@ -83,10 +83,11 @@ class GameDlcService(
             val source = if (item.detected) LinkSource.AUTO else LinkSource.MANUAL
             val current = existing[item.dlcId]
             if (current == null) {
-                dlcRepository.save(GameIncludedDlc(linkId = linkId, dlcId = item.dlcId, title = item.title.trim(), source = source))
+                dlcRepository.save(GameIncludedDlc(linkId = linkId, dlcId = item.dlcId, title = item.title.trim(), source = source, kind = item.kind))
             } else {
                 current.title = item.title.trim()
                 current.source = source
+                current.kind = item.kind
             }
         }
         dlcRepository.flush()

@@ -106,4 +106,24 @@ class GameDlcServiceTest {
 
         assertEquals("custom:songs-of-the-past", saved.captured.dlcId)
     }
+
+    @Test
+    fun `the kind of an extra is stored and updated`() {
+        val link = GameStoreLink(5, 10, GameStore.GOG, "100")
+        every { linkRepository.findById(5) } returns Optional.of(link)
+        every { linkRepository.findAllByGameId(10) } returns listOf(link)
+        val existing = GameIncludedDlc(1, 5, "1", "Pack", LinkSource.MANUAL, DlcKind.DLC)
+        every { dlcRepository.findAllByLinkId(5) } returns listOf(existing)
+        every { dlcRepository.findAllByLinkIdIn(listOf(5L)) } returns listOf(existing)
+        val saved = slot<GameIncludedDlc>()
+        every { dlcRepository.save(capture(saved)) } answers { firstArg() }
+
+        service.setIncluded(5, listOf(
+            IncludedDlcDto("1", "Pack", false, DlcKind.BONUS),
+            IncludedDlcDto("2", "Upgrade", false, DlcKind.EDITION_UPGRADE)
+        ))
+
+        assertEquals(DlcKind.BONUS, existing.kind)
+        assertEquals(DlcKind.EDITION_UPGRADE, saved.captured.kind)
+    }
 }

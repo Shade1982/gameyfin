@@ -47,7 +47,7 @@ class StoreDlcProvidersTest {
     }
 
     @Test
-    fun `Epic keeps DLC and add-ons but not editions or other offers`() {
+    fun `Epic lists DLC, add-ons and editions as extras but skips tools and internal entries`() {
         val own = "a".repeat(32)
         val root = mapper.readTree(
             """
@@ -56,14 +56,61 @@ class StoreDlcProvidersTest {
               {"id":"${"c".repeat(32)}","title":"Story DLC","offerType":"DLC"},
               {"id":"${"d".repeat(32)}","title":"Ultimate Edition","offerType":"EDITION"},
               {"id":"${"e".repeat(32)}","title":"Keys","offerType":"OTHERS"},
+              {"id":"${"f".repeat(32)}","title":"Ginger EP1 Staging","offerType":"DLC"},
+              {"id":"${"1".repeat(32)}","title":"Original Soundtrack","offerType":"DLC"},
               {"id":"$own","title":"Itself","offerType":"DLC"}
             ]
             """.trimIndent()
         )
 
         assertEquals(
-            listOf(StoreDlcInfo("b".repeat(32), "Map Pack"), StoreDlcInfo("c".repeat(32), "Story DLC")),
+            listOf(
+                StoreDlcInfo("b".repeat(32), "Map Pack", DlcKind.DLC),
+                StoreDlcInfo("1".repeat(32), "Original Soundtrack", DlcKind.BONUS),
+                StoreDlcInfo("c".repeat(32), "Story DLC", DlcKind.DLC),
+                StoreDlcInfo("d".repeat(32), "Ultimate Edition", DlcKind.EDITION_UPGRADE)
+            ),
             parseEpicDlc(root, own)
         )
+    }
+
+    @Test
+    fun `extras are typed from store hints first and title words second`() {
+        assertEquals(DlcKind.BONUS, classifyExtra("Some Game", isBonus = true))
+        assertEquals(DlcKind.BONUS, classifyExtra("The Witcher 3: Wild Hunt - Hearts of Stone Soundtrack"))
+        assertEquals(DlcKind.BONUS, classifyExtra("Digital Artbook"))
+        assertEquals(DlcKind.BONUS, classifyExtra("Soundtrack Deluxe Edition"))
+        assertEquals(DlcKind.EDITION_UPGRADE, classifyExtra("Skyrim Anniversary Upgrade"))
+        assertEquals(DlcKind.EDITION_UPGRADE, classifyExtra("Plain title", isEdition = true))
+        assertEquals(DlcKind.DLC, classifyExtra("Phantom Liberty"))
+    }
+
+    @Test
+    fun `GOG DLC is typed by title`() {
+        val root = mapper.readTree(
+            """{"expanded_dlcs":[{"id":1,"title":"Game Soundtrack"},{"id":2,"title":"Game Deluxe Edition Upgrade"},{"id":3,"title":"Story Pack"}]}"""
+        )
+
+        assertEquals(
+            listOf(DlcKind.EDITION_UPGRADE, DlcKind.BONUS, DlcKind.DLC),
+            parseGogDlc(root).map { it.kind }
+        )
+    }
+
+    @Test
+    fun `reads Steam app type`() {
+        val root = mapper.readTree("""{"20":{"success":true,"data":{"name":"X","type":"music"}}}""")
+
+        assertEquals("music", parseSteamAppType(root, "20"))
+    }
+
+    @Test
+    fun `GOGDB edition names skip the standard edition`() {
+        val product = mapper.readTree(
+            """{"editions":[{"name":"Standard Edition"},{"name":"Galaxy Edition"},{"name":" Starter Edition "},{"name":"Galaxy Edition"},{"name":""}]}"""
+        )
+
+        assertEquals(listOf("Galaxy Edition", "Starter Edition"), parseGogDbEditions(product))
+        assertTrue(parseGogDbEditions(mapper.readTree("""{}""")).isEmpty())
     }
 }
