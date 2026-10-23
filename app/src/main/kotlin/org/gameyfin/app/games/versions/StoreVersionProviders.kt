@@ -55,7 +55,11 @@ internal object StoreVersionHttp {
     }
 }
 
-/** Prefers GOG's official content-system endpoint and uses GOGDB when the official response is incomplete. */
+/**
+ * Prefers GOG's official content-system endpoint and uses GOGDB when the official response is incomplete.
+ * Packs and editions (e.g. "Anniversary Edition") usually have no builds of their own, so their versions are
+ * taken from the base game that GOGDB lists as included in the pack.
+ */
 @Component
 class GogVersionProvider : GameVersionProvider {
     override val store = GameStore.GOG
@@ -63,9 +67,19 @@ class GogVersionProvider : GameVersionProvider {
     override fun fetchVersions(storeAppId: String): List<StoreVersionInfo> {
         require(NUMERIC_PRODUCT_ID.matches(storeAppId)) { "Invalid GOG product ID: '$storeAppId'" }
 
+        try {
+            return fetchProductVersions(storeAppId)
+        } catch (ownFailure: Exception) {
+            val baseGameVersions = fetchBaseGameVersions(storeAppId)
+            if (baseGameVersions != null) return baseGameVersions
+            throw ownFailure
+        }
+    }
+
+    private fun fetchProductVersions(productId: String): List<StoreVersionInfo> {
         var officialFailure: Exception? = null
         try {
-            val uri = URI.create("$BASE_URL/products/$storeAppId/os/windows/builds?generation=2")
+            val uri = URI.create("$BASE_URL/products/$productId/os/windows/builds?generation=2")
             val page = parseGogBuildPage(StoreVersionHttp.getJson(uri))
             if (page.versions.isNotEmpty() && page.itemCount == page.totalCount) {
                 return page.versions.sortedByNewest()
@@ -77,26 +91,53 @@ class GogVersionProvider : GameVersionProvider {
             log.debug { incompleteResponse.message }
         } catch (e: Exception) {
             officialFailure = e
-            log.warn(e) { "GOG's official version endpoint failed for product $storeAppId; trying the GOGDB archive" }
+            log.warn(e) { "GOG's official version endpoint failed for product $productId; trying the GOGDB archive" }
         }
 
         try {
-            val uri = URI.create("$GOGDB_BASE_URL/data/products/$storeAppId/product.json")
-            val versions = parseGogDbProduct(StoreVersionHttp.getJson(uri))
+            val versions = parseGogDbProduct(getGogDbProduct(productId))
             check(versions.isNotEmpty()) { "GOGDB returned no usable Windows generation 2 builds" }
             return versions.sortedByNewest()
         } catch (fallbackFailure: Exception) {
             officialFailure?.let(fallbackFailure::addSuppressed)
             throw IllegalStateException(
-                "Could not retrieve GOG versions from either GOG or GOGDB for product $storeAppId",
+                "Could not retrieve GOG versions from either GOG or GOGDB for product $productId",
                 fallbackFailure
             )
         }
     }
 
+    /** Returns null if the product is not a pack, or none of the games it includes has builds. */
+    private fun fetchBaseGameVersions(productId: String): List<StoreVersionInfo>? {
+        val includedIds = try {
+            parseGogDbIncludedGameIds(getGogDbProduct(productId))
+        } catch (e: Exception) {
+            log.debug(e) { "Could not look up the games included in GOG product $productId" }
+            return null
+        }
+
+        for (includedId in includedIds.take(MAX_INCLUDED_PRODUCTS)) {
+            try {
+                if (!isGogDbGame(getGogDbProduct(includedId))) continue
+                val versions = fetchProductVersions(includedId)
+                log.info { "GOG product $productId has no builds of its own; using base game $includedId" }
+                return versions
+            } catch (e: Exception) {
+                log.debug(e) { "GOG product $includedId, included in $productId, has no usable builds" }
+            }
+        }
+        return null
+    }
+
+    private fun getGogDbProduct(productId: String): JsonNode {
+        require(NUMERIC_PRODUCT_ID.matches(productId)) { "Invalid GOG product ID: '$productId'" }
+        return StoreVersionHttp.getJson(URI.create("$GOGDB_BASE_URL/data/products/$productId/product.json"))
+    }
+
     companion object {
         private const val BASE_URL = "https://content-system.gog.com"
         private const val GOGDB_BASE_URL = "https://www.gogdb.org"
+        private const val MAX_INCLUDED_PRODUCTS = 10
         private val NUMERIC_PRODUCT_ID = Regex("^\\d{1,20}$")
     }
 }
@@ -194,6 +235,15 @@ internal fun parseGogDbProduct(product: JsonNode): List<StoreVersionInfo> {
         )
     }
 }
+
+/** IDs of the products a GOG pack includes. Empty for products that are not packs. */
+internal fun parseGogDbIncludedGameIds(product: JsonNode): List<String> {
+    val included = product.path("includes_games")
+    if (!included.isArray) return emptyList()
+    return (0 until included.size()).map { included.get(it).asText().trim() }.filter { it.isNotEmpty() }
+}
+
+internal fun isGogDbGame(product: JsonNode): Boolean = product.path("type").asText() == "game"
 
 internal fun parseSteamVersions(root: JsonNode, appId: String): List<StoreVersionInfo> {
     val branches = root.path("data").path(appId).path("depots").path("branches")

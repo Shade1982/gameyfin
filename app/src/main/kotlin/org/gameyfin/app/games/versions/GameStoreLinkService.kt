@@ -14,6 +14,9 @@ class GameStoreLinkService(
     private val gameRepository: GameRepository
 ) {
     companion object {
+        const val MAX_EDITION_LENGTH = 100
+        val STANDARD_EDITION = Regex("(standard|base|default|regular)( (edition|game|version))?", RegexOption.IGNORE_CASE)
+
         // Prefer stores that provide real version names over stores that only provide build IDs
         private val TRACKING_PREFERENCE = listOf(GameStore.GOG, GameStore.EPIC, GameStore.STEAM)
     }
@@ -45,6 +48,17 @@ class GameStoreLinkService(
     fun setTracked(linkId: Long) {
         val link = linkRepository.findById(linkId).orElseThrow { NoSuchElementException("Link $linkId not found") }
         linkRepository.findAllByGameId(link.gameId).forEach { it.tracked = it.id == link.id }
+    }
+
+    @Transactional
+    fun setEdition(linkId: Long, edition: String?) {
+        val link = linkRepository.findById(linkId).orElseThrow { NoSuchElementException("Link $linkId not found") }
+        // The standard/base edition is the base product and does not get a label
+        val cleaned = edition?.trim()?.takeIf { it.isNotEmpty() && !STANDARD_EDITION.matches(it) }
+        require(cleaned == null || cleaned.length <= MAX_EDITION_LENGTH) {
+            "Edition must be at most $MAX_EDITION_LENGTH characters"
+        }
+        link.edition = cleaned
     }
 
     /** Makes sure exactly one link of the game is tracked (if it has any). */

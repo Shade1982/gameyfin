@@ -91,6 +91,16 @@ class StoreVersionProvidersTest {
     }
 
     @Test
+    fun `reads the games included in a GOG pack and tells games from DLC`() {
+        val pack = mapper.readTree("""{"type": "pack", "includes_games": [1122806862, 1508702879]}""")
+
+        assertEquals(listOf("1122806862", "1508702879"), parseGogDbIncludedGameIds(pack))
+        assertEquals(false, isGogDbGame(pack))
+        assertEquals(true, isGogDbGame(mapper.readTree("""{"type": "game"}""")))
+        assertEquals(emptyList(), parseGogDbIncludedGameIds(mapper.readTree("""{"type": "game"}""")))
+    }
+
+    @Test
     fun `parses Steam public and named branches without treating build IDs as versions`() {
         val response = mapper.readTree(
             """

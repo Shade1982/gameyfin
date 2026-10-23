@@ -148,7 +148,7 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
                                                             </Accordion.Heading>
                                                             <Accordion.Panel>
                                                                 <Accordion.Body className="max-h-80 overflow-y-auto">
-                                                                    <GameVersionEditor gameTitle={game.title} editor={versionEditor}/>
+                                                                    <GameVersionEditor gameId={gameId} gameTitle={game.title} editor={versionEditor}/>
                                                                 </Accordion.Body>
                                                             </Accordion.Panel>
                                                         </Accordion.Item>

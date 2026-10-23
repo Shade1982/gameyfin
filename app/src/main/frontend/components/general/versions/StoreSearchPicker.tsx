@@ -138,8 +138,11 @@ export default function StoreSearchPicker({initialQuery, linkedKeys, onPick, onC
                         return (
                             <li key={result.id} className="flex items-center gap-3 rounded-lg p-1 hover:bg-default-100">
                                 {result.imageUrl
-                                    ? <img src={result.imageUrl} alt="" loading="lazy"
-                                           className="h-12 w-9 rounded object-cover"/>
+                                    ? <img src={result.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer"
+                                           className="h-12 w-9 rounded object-cover"
+                                           onError={(event) => {
+                                               event.currentTarget.style.visibility = "hidden";
+                                           }}/>
                                     : <div className="h-12 w-9 rounded bg-default-200"/>}
                                 <div className="flex min-w-0 flex-1 flex-col">
                                     <span className="truncate">{result.title}</span>

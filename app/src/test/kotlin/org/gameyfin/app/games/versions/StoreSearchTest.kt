@@ -105,4 +105,27 @@ class StoreSearchTest {
 
         assertEquals(listOf("The Witcher 3: Wild Hunt"), filterByTitleRelevance("Witcher III", results).map { it.title })
     }
+
+    @Test
+    fun `search queries lose punctuation but keep apostrophes`() {
+        assertEquals("The Witcher 3 Wild Hunt Remastered", normalizeSearchQuery("The Witcher 3: Wild Hunt — Remastered"))
+        assertEquals("Assassin's Creed", normalizeSearchQuery("  Assassin's Creed! "))
+    }
+
+    @Test
+    fun `Epic cover images are requested as small thumbnails`() {
+        assertEquals(
+            "https://cdn1.epicgames.com/offer/x/cover-1?h=96&resize=1&w=72",
+            epicThumbnailUrl("https://cdn1.epicgames.com/offer/x/cover-1")
+        )
+        assertEquals("https://example.test/tall.jpg", epicThumbnailUrl("https://example.test/tall.jpg"))
+    }
+
+    @Test
+    fun `Steam search keeps base games and unknown types but drops DLC and soundtracks`() {
+        val results = listOf("1", "2", "3", "4").map { StoreSearchResultDto(it, "T$it", null, null) }
+        val types = mapOf("1" to "game", "2" to "dlc", "3" to "music")
+
+        assertEquals(listOf("1", "4"), keepBaseGames(results) { types[it] }.map { it.id })
+    }
 }

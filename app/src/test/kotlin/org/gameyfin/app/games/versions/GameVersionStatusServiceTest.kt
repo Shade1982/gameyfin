@@ -49,6 +49,36 @@ class GameVersionStatusServiceTest {
     }
 
     @Test
+    fun `an old build on a side branch reports the newer main branch release`() {
+        val link = GameStoreLink(1, 10, GameStore.GOG, "123", tracked = true)
+        val classic = StoreVersion(11, 1, "1", "Classic", "1.32", Instant.parse("2018-11-06T00:00:00Z"))
+        val main = StoreVersion(12, 1, "2", "", "5.01", Instant.parse("2026-10-07T00:00:00Z"))
+        every { linkRepository.findAllByGameId(10) } returns listOf(link)
+        every { versionRepository.findAllByLinkId(1) } returns listOf(classic, main)
+        every { stateRepository.findById(1) } returns Optional.of(GameVersionState(1, 11, LinkSource.MANUAL))
+
+        val status = service.getStatus(10).single()
+
+        assertEquals(12, status.latestVersionId)
+        assertTrue(status.updateAvailable == true)
+    }
+
+    @Test
+    fun `a side branch that is newer than the main branch stays up to date`() {
+        val link = GameStoreLink(1, 10, GameStore.STEAM, "123", tracked = true)
+        val beta = StoreVersion(11, 1, "300", "beta", "Beta build 300", Instant.parse("2024-03-01T00:00:00Z"))
+        val main = StoreVersion(12, 1, "200", "", "Public build 200", Instant.parse("2024-02-01T00:00:00Z"))
+        every { linkRepository.findAllByGameId(10) } returns listOf(link)
+        every { versionRepository.findAllByLinkId(1) } returns listOf(beta, main)
+        every { stateRepository.findById(1) } returns Optional.of(GameVersionState(1, 11, LinkSource.MANUAL))
+
+        val status = service.getStatus(10).single()
+
+        assertEquals(11, status.latestVersionId)
+        assertTrue(status.updateAvailable == false)
+    }
+
+    @Test
     fun `status leaves update unknown when installed build is not cached`() {
         val link = GameStoreLink(1, 10, GameStore.GOG, "123", tracked = true)
         every { linkRepository.findAllByGameId(10) } returns listOf(link)

@@ -22,6 +22,7 @@ data class GameStoreVersionStatusDto(
     val store: GameStore,
     val storeAppId: String,
     val tracked: Boolean,
+    val edition: String?,
     val versionsCheckedAt: Instant?,
     val versions: List<StoreVersionDto>,
     val installedVersionId: Long?,
@@ -59,17 +60,17 @@ class GameVersionStatusService(
             val state = stateRepository.findByIdOrNull(link.id!!)
             val installedVersionId = state?.installedVersionId
             val installedVersion = versions.firstOrNull { it.id == installedVersionId }
+            val newestFirst = compareBy<StoreVersionDto> { it.releasedAt ?: Instant.MIN }.thenBy { it.buildId }
+            // A side branch (e.g. "Classic") must not hide a newer release on the main branch
             val latest = versions
-                .filter { it.branch == installedVersion?.branch.orEmpty() }
-                .maxWithOrNull(
-                    compareBy<StoreVersionDto> { it.releasedAt ?: Instant.MIN }
-                        .thenBy { it.buildId }
-                )
+                .filter { it.branch == installedVersion?.branch.orEmpty() || it.branch.isEmpty() }
+                .maxWithOrNull(newestFirst)
             GameStoreVersionStatusDto(
                 linkId = link.id!!,
                 store = link.store,
                 storeAppId = link.storeAppId,
                 tracked = link.tracked,
+                edition = link.edition,
                 versionsCheckedAt = link.versionsCheckedAt,
                 versions = versions,
                 installedVersionId = installedVersionId,

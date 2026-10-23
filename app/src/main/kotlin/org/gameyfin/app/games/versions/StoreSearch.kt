@@ -37,11 +37,17 @@ class SteamStoreSearchProvider : GameStoreSearchProvider {
 
     override fun search(query: String): List<StoreSearchResultDto> {
         val uri = URI.create("$BASE_URL/?term=${encode(query)}&cc=us&l=en")
-        return parseSteamSearch(StoreVersionHttp.getJson(uri))
+        return keepBaseGames(parseSteamSearch(StoreVersionHttp.getJson(uri))) { id -> steamAppType(id) }
     }
+
+    /** The search lists DLC and soundtracks as plain apps, so each hit's type is looked up. Null if unknown. */
+    private fun steamAppType(id: String): String? = runCatching {
+        parseSteamAppType(StoreVersionHttp.getJson(URI.create("$DETAILS_URL?appids=$id&filters=basic")), id)
+    }.getOrNull()
 
     companion object {
         private const val BASE_URL = "https://store.steampowered.com/api/storesearch"
+        private const val DETAILS_URL = "https://store.steampowered.com/api/appdetails"
     }
 }
 
@@ -82,12 +88,32 @@ class EpicStoreSearchProvider : GameStoreSearchProvider {
 class GameStoreSearchService(private val providers: List<GameStoreSearchProvider>) {
 
     fun search(store: GameStore, query: String): List<StoreSearchResultDto> {
-        val trimmed = query.trim()
+        val trimmed = normalizeSearchQuery(query)
         if (trimmed.length < 2) return emptyList()
         val provider = providers.singleOrNull { it.store == store }
             ?: throw IllegalStateException("No search provider is registered for $store")
         return provider.search(trimmed.take(100)).take(MAX_SEARCH_RESULTS)
     }
+}
+
+/**
+ * Store searches are word based and some (Steam) return nothing when the query contains punctuation such as a dash
+ * in "Wild Hunt — Remastered". Apostrophes are kept because they are part of words.
+ */
+internal fun normalizeSearchQuery(query: String): String =
+    query.replace(Regex("[^\\p{L}\\p{N}']+"), " ").trim()
+
+/** Epic's cover images are 1200x1600 (about 600 KB), which is far too heavy for a result list thumbnail. */
+internal fun epicThumbnailUrl(url: String): String =
+    if (URI.create(url).host == "cdn1.epicgames.com" && '?' !in url) "$url?h=96&resize=1&w=72" else url
+
+/** Drops results known to be DLC, soundtracks and the like. Results whose type is unknown are kept. */
+internal fun keepBaseGames(
+    results: List<StoreSearchResultDto>,
+    typeOf: (String) -> String?
+): List<StoreSearchResultDto> {
+    val types = results.parallelStream().map { it.id to typeOf(it.id) }.toList().toMap()
+    return results.filter { types[it.id].let { type -> type == null || type == "game" } }
 }
 
 internal fun parseSteamSearch(root: JsonNode): List<StoreSearchResultDto> =
@@ -114,6 +140,7 @@ internal fun parseEpicSearch(root: JsonNode): List<StoreSearchResultDto> =
         val image = listOf("OfferImageTall", "Thumbnail")
             .firstNotNullOfOrNull { type -> images.firstOrNull { it.path("type").asString("") == type } }
             ?.path("url")?.asString("")?.takeIf { it.isNotBlank() }
+            ?.let(::epicThumbnailUrl)
         StoreSearchResultDto(id, title, offer.path("seller").path("name").asString("").takeIf { it.isNotBlank() }, image)
     }.take(MAX_SEARCH_RESULTS)
 
