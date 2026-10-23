@@ -25,6 +25,12 @@ user-friendly interface.
 Download your game files directly from the web UI, share your library with friends, and enjoy your games like never
 before.
 
+### Server announcements
+
+This branch adds a configurable server message to the home page. In **Administration → System Management**, edit
+**Server Message (HTML)** and use **Show Server Message** to control whether it appears above the library and collection
+sections. Leave the message empty or turn off the checkbox to hide it.
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).
