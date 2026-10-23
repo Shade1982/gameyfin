@@ -41,6 +41,14 @@ The documentation and screenshots are available at [gameyfin.org](https://gameyf
 🔒 Integrates into your SSO solution via OAuth2 / OpenID Connect  
 🆓 **100% open source and free to use without any paywall.**
 
+### Feature branches
+
+These features are also available as standalone branches, each with its own README and screenshots:
+
+* [Store links and version tracking](https://github.com/Shade1982/gameyfin/blob/feature/version-management/README.md) (`feature/version-management`)
+* [Editions, versions, and included DLC](https://github.com/Shade1982/gameyfin/blob/feature/editions-dlc/README.md) (`feature/editions-dlc`)
+* [Server announcements](https://github.com/Shade1982/gameyfin/blob/feature/announcements/README.md) (`feature/announcements`)
+
 ### Contribute to Gameyfin
 
 Contributions are welcome!  
