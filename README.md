@@ -37,6 +37,18 @@ priorities, as if Gameyfin had merged them itself.
 * Each provider supplies one ID per game, so results that share a provider with the first one are disabled.
 * No backend, API or database changes for combining. Only the match dialog changes.
 
+#### Screenshots
+
+Here the same game is listed on two lines, because one source has no release year. Each line has a **Combine** button
+(link icon), an **Add base game** button (plus icon) and the usual **Pick** button (arrow).
+
+![One game split over two search results](assets/screenshots/improved-metadata-search/split-results.png)
+
+After you press **Combine** on one line, that line and every line from the same source are disabled. Pick the second
+line to use both together.
+
+![Combining two results](assets/screenshots/improved-metadata-search/combine-mode.png)
+
 #### Adding a base game to an edition
 
 Special editions often have very little metadata of their own (sometimes just one image and a description). Click
@@ -48,6 +60,16 @@ game, using **Combine with another result** again if it is split over several li
 * If the base game has no metadata either, nothing is added. Gameyfin never invents metadata.
 * The base game is stored in its own table (`GAME_SUPPLEMENT`) and re-applied when metadata is refreshed. Existing tables
   are not changed. Matching a game again without a base game removes it.
+
+##### Screenshots
+
+Search for the edition, then press the plus icon on the edition's line.
+
+![Edition and base game in the search results](assets/screenshots/improved-metadata-search/edition-results.png)
+
+The edition stays selected and you pick the base game from the list.
+
+![Picking the base game](assets/screenshots/improved-metadata-search/pick-base-game.png)
 
 ### Documentation
 
