@@ -25,6 +25,13 @@ user-friendly interface.
 Download your game files directly from the web UI, share your library with friends, and enjoy your games like never
 before.
 
+### Store links and version tracking
+
+This branch lets you link a game to its Steam, GOG, or Epic Games product from the game metadata editor. Game details
+show the latest store version alongside the version in your library. You can select the library version manually,
+refresh the store's version list, or ask Gameyfin to detect a matching version from local files. Detection uses store
+metadata such as Steam manifests, GOG build information and installer names, or Epic manifests when available.
+
 ### Documentation
 
 The documentation and screenshots are available at [gameyfin.org](https://gameyfin.org/).
