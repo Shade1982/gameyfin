@@ -48,6 +48,7 @@ These features are also available as standalone branches, each with its own READ
 * [Store links and version tracking](https://github.com/Shade1982/gameyfin/blob/feature/version-management/README.md) (`feature/version-management`)
 * [Editions, versions, and included DLC](https://github.com/Shade1982/gameyfin/blob/feature/editions-dlc/README.md) (`feature/editions-dlc`)
 * [Server announcements](https://github.com/Shade1982/gameyfin/blob/feature/announcements/README.md) (`feature/announcements`)
+* [Improved metadata search](https://github.com/Shade1982/gameyfin/blob/feature/improved-metadata-search/README.md) (`feature/improved-metadata-search`)
 
 ### Contribute to Gameyfin
 
