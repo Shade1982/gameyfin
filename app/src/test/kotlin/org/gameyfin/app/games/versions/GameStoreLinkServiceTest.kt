@@ -14,7 +14,11 @@ class GameStoreLinkServiceTest {
 
     private val repository = mockk<GameStoreLinkRepository>()
     private val gameRepository = mockk<GameRepository>()
-    private val service = GameStoreLinkService(repository, gameRepository)
+    private val service = GameStoreLinkService(
+        repository,
+        gameRepository,
+        registryOf(activeStore(STEAM_INFO), activeStore(GOG_INFO), activeStore(EPIC_INFO))
+    )
 
     /** Fake in-memory table so that the repository behaves consistently across calls */
     private val stored = mutableListOf<GameStoreLink>()
@@ -44,7 +48,7 @@ class GameStoreLinkServiceTest {
 
     @Test
     fun `adds a link from a plain ID or a product URL and tracks the first one`() {
-        val steam = service.addLink(10, GameStore.STEAM, "https://store.steampowered.com/app/413150/Stardew_Valley/")
+        val steam = service.addLink(10, "steam", "https://store.steampowered.com/app/413150/Stardew_Valley/")
 
         assertEquals("413150", steam.storeAppId)
         assertTrue(steam.tracked)
@@ -52,35 +56,35 @@ class GameStoreLinkServiceTest {
 
     @Test
     fun `adding the same link twice does not create a duplicate`() {
-        service.addLink(10, GameStore.GOG, "1453375253")
-        service.addLink(10, GameStore.GOG, " 1453375253 ")
+        service.addLink(10, "gog", "1453375253")
+        service.addLink(10, "gog", " 1453375253 ")
 
         assertEquals(1, stored.size)
     }
 
     @Test
     fun `a game can be linked to several stores independently of each other`() {
-        service.addLink(10, GameStore.STEAM, "413150")
-        service.addLink(10, GameStore.GOG, "1453375253")
-        service.addLink(10, GameStore.EPIC, "2ae6edb2223c4f8c97e9839b5b6497bb")
+        service.addLink(10, "steam", "413150")
+        service.addLink(10, "gog", "1453375253")
+        service.addLink(10, "epic", "2ae6edb2223c4f8c97e9839b5b6497bb")
 
-        assertEquals(setOf(GameStore.STEAM, GameStore.GOG, GameStore.EPIC), stored.map { it.store }.toSet())
+        assertEquals(setOf("steam", "gog", "epic"), stored.map { it.store }.toSet())
         assertEquals(1, stored.count { it.tracked })
-        assertEquals(GameStore.STEAM, stored.single { it.tracked }.store)
+        assertEquals("steam", stored.single { it.tracked }.store)
     }
 
     @Test
     fun `rejects invalid IDs and unknown games`() {
-        assertFailsWith<IllegalArgumentException> { service.addLink(10, GameStore.STEAM, "not-an-id") }
-        assertFailsWith<IllegalArgumentException> { service.addLink(10, GameStore.EPIC, "413150") }
-        assertFailsWith<NoSuchElementException> { service.addLink(99, GameStore.STEAM, "413150") }
+        assertFailsWith<IllegalArgumentException> { service.addLink(10, "steam", "not-an-id") }
+        assertFailsWith<IllegalArgumentException> { service.addLink(10, "epic", "413150") }
+        assertFailsWith<NoSuchElementException> { service.addLink(99, "steam", "413150") }
         assertTrue(stored.isEmpty())
     }
 
     @Test
     fun `removing the tracked link promotes another one`() {
-        val gog = service.addLink(10, GameStore.GOG, "1453375253")
-        val steam = service.addLink(10, GameStore.STEAM, "413150")
+        val gog = service.addLink(10, "gog", "1453375253")
+        val steam = service.addLink(10, "steam", "413150")
 
         service.removeLink(gog.id!!)
 
@@ -90,8 +94,8 @@ class GameStoreLinkServiceTest {
 
     @Test
     fun `tracked link can be changed`() {
-        val gog = service.addLink(10, GameStore.GOG, "1453375253")
-        val steam = service.addLink(10, GameStore.STEAM, "413150")
+        val gog = service.addLink(10, "gog", "1453375253")
+        val steam = service.addLink(10, "steam", "413150")
 
         service.setTracked(steam.id!!)
 
@@ -101,7 +105,7 @@ class GameStoreLinkServiceTest {
 
     @Test
     fun `edition label is trimmed, can be cleared and is length limited`() {
-        val link = service.addLink(10, GameStore.GOG, "1453375253")
+        val link = service.addLink(10, "gog", "1453375253")
 
         service.setEdition(link.id!!, "  Anniversary Edition ")
         assertEquals("Anniversary Edition", link.edition)
@@ -113,5 +117,13 @@ class GameStoreLinkServiceTest {
         assertEquals(null, link.edition)
 
         assertFailsWith<IllegalArgumentException> { service.setEdition(link.id!!, "x".repeat(101)) }
+    }
+
+    @Test
+    fun `refuses links to stores without an active plugin`() {
+        val steamOnly = GameStoreLinkService(repository, gameRepository, registryOf(activeStore(STEAM_INFO)))
+
+        assertFailsWith<StoreUnavailableException> { steamOnly.addLink(10, "gog", "1453375253") }
+        assertTrue(stored.isEmpty())
     }
 }

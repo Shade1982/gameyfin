@@ -19,7 +19,11 @@ data class StoreVersionDto(
 
 data class GameStoreVersionStatusDto(
     val linkId: Long,
-    val store: GameStore,
+    val store: String,
+    /** Display name of the store, or the store ID if its plugin is not active */
+    val storeName: String,
+    /** Whether the plugin for the store is active. If not, the link is read-only and not refreshed. */
+    val storeAvailable: Boolean,
     val storeAppId: String,
     val tracked: Boolean,
     val edition: String?,
@@ -44,12 +48,14 @@ class GameVersionStatusService(
     private val linkRepository: GameStoreLinkRepository,
     private val versionRepository: StoreVersionRepository,
     private val stateRepository: GameVersionStateRepository,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val storeRegistry: GameStoreRegistry
 ) {
 
     @Transactional(readOnly = true)
     fun getStatus(gameId: Long): List<GameStoreVersionStatusDto> {
         val links = linkRepository.findAllByGameId(gameId)
+        val activeStores = storeRegistry.activeStores().associateBy { it.id }
         return links.map { link ->
             val versions = versionRepository.findAllByLinkId(link.id!!)
                 .map { it.toDto() }
@@ -68,6 +74,8 @@ class GameVersionStatusService(
             GameStoreVersionStatusDto(
                 linkId = link.id!!,
                 store = link.store,
+                storeName = activeStores[link.store]?.info?.displayName ?: link.store,
+                storeAvailable = link.store in activeStores,
                 storeAppId = link.storeAppId,
                 tracked = link.tracked,
                 edition = link.edition,
@@ -176,14 +184,16 @@ class GameVersionStatusService(
     }
 
     /** Reads the build IDs or version names the installed files of the game report for a store product. */
-    fun detectInstalledValues(gameId: Long, store: GameStore, storeAppId: String): List<String> {
+    fun detectInstalledValues(gameId: Long, store: String, storeAppId: String): List<String> {
         val game = gameRepository.findByIdOrNull(gameId)
             ?: throw NoSuchElementException("Game $gameId not found")
         val path = Path.of(game.metadata.path)
         return when (store) {
-            GameStore.STEAM -> detectSteamBuildId(path, storeAppId)?.let(::listOf).orEmpty()
-            GameStore.GOG -> detectGogValues(path, storeAppId)
-            GameStore.EPIC -> detectEpicValues(path)
+            "steam" -> detectSteamBuildId(path, storeAppId)?.let(::listOf).orEmpty()
+            "gog" -> detectGogValues(path, storeAppId)
+            "epic" -> detectEpicValues(path)
+            // Local detection only knows the launchers' file formats; other stores need the version picked manually
+            else -> emptyList()
         }
     }
 

@@ -1,5 +1,7 @@
 package org.gameyfin.app.games.versions
 
+import org.gameyfin.pluginapi.gamestore.GameStoreProvider
+import org.gameyfin.pluginapi.gamestore.GameStoreVersion
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -9,21 +11,21 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class StoreVersionPreviewServiceTest {
-    private val provider = mockk<GameVersionProvider> { every { store } returns GameStore.GOG }
+    private val provider = mockk<GameStoreProvider>()
     private val statusService = mockk<GameVersionStatusService>()
-    private val service = StoreVersionPreviewService(listOf(provider), statusService)
+    private val service = StoreVersionPreviewService(registryOf(activeStore(GOG_INFO, provider)), statusService)
 
     private val versions = listOf(
-        StoreVersionInfo("b2", "", "2.0"),
-        StoreVersionInfo("b1", "", "1.0")
+        GameStoreVersion("b2", "", "2.0"),
+        GameStoreVersion("b1", "", "1.0")
     )
 
     @Test
     fun `returns fetched versions and the index of the detected one`() {
         every { provider.fetchVersions("987") } returns versions
-        every { statusService.detectInstalledValues(10, GameStore.GOG, "987") } returns listOf("b1")
+        every { statusService.detectInstalledValues(10, "gog", "987") } returns listOf("b1")
 
-        val result = service.preview(10, GameStore.GOG, "https://www.gogdb.org/product/987")
+        val result = service.preview(10, "gog", "https://www.gogdb.org/product/987")
 
         assertEquals(listOf("2.0", "1.0"), result.versions.map { it.label })
         assertEquals(1, result.detectedIndex)
@@ -32,9 +34,9 @@ class StoreVersionPreviewServiceTest {
     @Test
     fun `detection problems do not hide the versions`() {
         every { provider.fetchVersions("987") } returns versions
-        every { statusService.detectInstalledValues(10, GameStore.GOG, "987") } throws IllegalStateException("boom")
+        every { statusService.detectInstalledValues(10, "gog", "987") } throws IllegalStateException("boom")
 
-        val result = service.preview(10, GameStore.GOG, "987")
+        val result = service.preview(10, "gog", "987")
 
         assertEquals(2, result.versions.size)
         assertNull(result.detectedIndex)
@@ -42,12 +44,12 @@ class StoreVersionPreviewServiceTest {
 
     @Test
     fun `rejects invalid IDs without contacting the store`() {
-        assertFailsWith<IllegalArgumentException> { service.preview(10, GameStore.GOG, "nope") }
+        assertFailsWith<IllegalArgumentException> { service.preview(10, "gog", "nope") }
         verify(exactly = 0) { provider.fetchVersions(any()) }
     }
 
     @Test
-    fun `fails when no provider exists for the store`() {
-        assertFailsWith<IllegalStateException> { service.preview(10, GameStore.STEAM, "123") }
+    fun `fails when no active plugin provides the store`() {
+        assertFailsWith<StoreUnavailableException> { service.preview(10, "steam", "123") }
     }
 }

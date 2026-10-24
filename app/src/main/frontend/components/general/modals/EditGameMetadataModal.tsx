@@ -138,6 +138,7 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
                                                                 </Accordion.Body>
                                                             </Accordion.Panel>
                                                         </Accordion.Item>
+                                                        {versionEditor.available && (
                                                         <Accordion.Item id="store-versions">
                                                             <Accordion.Heading>
                                                                 <Accordion.Trigger
@@ -152,6 +153,7 @@ export default function EditGameMetadataModal({gameId, isOpen, onOpenChange}: Ed
                                                                 </Accordion.Body>
                                                             </Accordion.Panel>
                                                         </Accordion.Item>
+                                                        )}
                                                     </Accordion>
                                                 </Modal.Body>
                                                 <Modal.Footer>

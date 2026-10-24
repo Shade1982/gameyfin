@@ -2,49 +2,35 @@ package org.gameyfin.app.games.versions
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
-import tools.jackson.databind.JsonNode
-import java.net.URI
-import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 
 private val log = KotlinLogging.logger {}
 
 /**
- * Suggests edition names for a store product. Only GOGDB lists the editions of a product by name,
- * for the other stores editions are separate products and the label is suggested from the product title.
+ * Suggests edition names for a store product, if the store's plugin lists the editions of a product by name.
+ * For stores on which editions are separate products, the label is suggested from the product title instead.
  */
 @Service
-class EditionSuggestionService {
-    private class Cached(val fetchedAt: Long, val names: List<String>)
+class EditionSuggestionService(private val storeRegistry: GameStoreRegistry) {
 
-    private val cache = ConcurrentHashMap<String, Cached>()
-
-    fun suggest(store: GameStore, storeAppId: String): List<String> {
-        if (store != GameStore.GOG) return emptyList()
-        val id = store.parseId(storeAppId) ?: return emptyList()
-        val now = System.nanoTime()
-        cache[id]?.takeIf { now - it.fetchedAt < CACHE_TTL.toNanos() }?.let { return it.names }
+    fun suggest(store: String, storeAppId: String): List<String> {
+        val active = storeRegistry.find(store) ?: return emptyList()
+        val id = active.parseProductId(storeAppId) ?: return emptyList()
         return try {
-            val product = StoreVersionHttp.getJson(URI.create("https://www.gogdb.org/data/products/$id/product.json"))
-            parseGogDbEditions(product).also { cache[id] = Cached(now, it) }
+            active.provider.suggestEditions(id)
+                .map { it.trim() }
+                .filter {
+                    it.isNotEmpty() && it.length <= GameStoreLinkService.MAX_EDITION_LENGTH &&
+                            !GameStoreLinkService.STANDARD_EDITION.matches(it)
+                }
+                .distinct()
+                .take(MAX_SUGGESTIONS)
         } catch (e: Exception) {
-            log.debug(e) { "Could not look up the editions of GOG product $id" }
+            log.debug(e) { "Could not look up the editions of ${active.info.displayName} product $id" }
             emptyList()
         }
     }
 
     companion object {
-        private val CACHE_TTL = Duration.ofMinutes(10)
+        private const val MAX_SUGGESTIONS = 20
     }
-}
-
-/** Edition names of a GOG product, without the standard edition, which is the unlabeled base product. */
-internal fun parseGogDbEditions(product: JsonNode): List<String> {
-    val editions = product.path("editions")
-    if (!editions.isArray) return emptyList()
-    return (0 until editions.size())
-        .map { editions.get(it).path("name").asText("").trim() }
-        .filter { it.isNotEmpty() && it.length <= GameStoreLinkService.MAX_EDITION_LENGTH && !GameStoreLinkService.STANDARD_EDITION.matches(it) }
-        .distinct()
-        .take(20)
 }

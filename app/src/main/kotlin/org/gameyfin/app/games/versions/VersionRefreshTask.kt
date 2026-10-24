@@ -15,7 +15,7 @@ class VersionRefreshTask(
     private val registry: TaskRegistry,
     private val linkRepository: GameStoreLinkRepository,
     private val cacheService: StoreVersionCacheService,
-    private val providers: List<GameVersionProvider>
+    private val storeRegistry: GameStoreRegistry
 ) {
     companion object {
         private val log = KotlinLogging.logger {}
@@ -30,7 +30,7 @@ class VersionRefreshTask(
             TaskDefinition(
                 key = KEY,
                 name = "Refresh game versions",
-                description = "Fetches and caches available Steam, GOG and Epic game versions for linked games",
+                description = "Fetches and caches the available versions of linked games from the game store plugins",
                 defaultSchedule = DEFAULT_SCHEDULE,
                 action = TaskAction.Run { execute(it) }
             )
@@ -41,16 +41,25 @@ class VersionRefreshTask(
         val links = linkRepository.findAll().sortedBy { it.id }
         if (links.isEmpty()) return TaskResult("No store links to refresh")
 
-        val providersByStore = resolveProviders()
+        val stores = storeRegistry.activeStores().associateBy { it.id }
+        if (stores.isEmpty()) return TaskResult("Skipped: no game store plugin is enabled")
+
         var updated = 0
         var failed = 0
+        var skipped = 0
 
         links.forEachIndexed { index, link ->
             context.throwIfCancelled()
             context.progress("Refreshing ${link.store} versions", index, links.size)
 
+            val store = stores[link.store]
+            if (store == null) {
+                skipped++
+                return@forEachIndexed
+            }
+
             try {
-                fetchAndCache(link, providersByStore)
+                fetchAndCache(link, store)
                 updated++
             } catch (e: Exception) {
                 failed++
@@ -65,27 +74,18 @@ class VersionRefreshTask(
         if (failed > 0) {
             throw IllegalStateException("Version refresh updated $updated of ${links.size} links; $failed failed")
         }
-        return TaskResult("Refreshed versions for $updated store link(s)")
+        val skippedNote = if (skipped > 0) " ($skipped skipped because their store plugin is not enabled)" else ""
+        return TaskResult("Refreshed versions for $updated store link(s)$skippedNote")
     }
 
     /** Fetches and caches the versions of a single store link right now (e.g. when files were replaced). */
     fun refreshLink(linkId: Long) {
         val link = linkRepository.findById(linkId).orElseThrow { NoSuchElementException("Link $linkId not found") }
-        fetchAndCache(link, resolveProviders())
+        fetchAndCache(link, storeRegistry.require(link.store))
     }
 
-    private fun fetchAndCache(link: GameStoreLink, providersByStore: Map<GameStore, GameVersionProvider>) {
-        val provider = providersByStore[link.store]
-            ?: throw IllegalStateException("No version provider is registered for ${link.store}")
-        val versions = provider.fetchVersions(link.storeAppId)
+    private fun fetchAndCache(link: GameStoreLink, store: ActiveGameStore) {
+        val versions = store.provider.fetchVersions(link.storeAppId)
         cacheService.update(link.id!!, versions, Instant.now())
-    }
-
-    private fun resolveProviders(): Map<GameStore, GameVersionProvider> {
-        val duplicates = providers.groupBy { it.store }.filterValues { it.size > 1 }
-        check(duplicates.isEmpty()) {
-            "Multiple game version providers are registered for: ${duplicates.keys.joinToString()}"
-        }
-        return providers.associateBy { it.store }
     }
 }

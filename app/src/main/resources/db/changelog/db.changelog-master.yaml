@@ -1688,3 +1688,13 @@ databaseChangeLog:
               - column:
                   name: EDITION
                   type: varchar(100)
+
+  - changeSet:
+      id: 2.6.0-game-store-link-plugin-store-ids
+      author: grimsi
+      comment: >
+        Stores are provided by game store plugins, which identify them with lower case IDs (e.g. "steam")
+        instead of the names of the enum that was used before.
+      changes:
+        - sql:
+            sql: UPDATE GAME_STORE_LINK SET STORE = LOWER(STORE)
