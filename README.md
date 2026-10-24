@@ -44,6 +44,7 @@ provider categories. There is one plugin per data source:
 | `plugins/gog` (GOG Store) | GOG | Search, versions, DLC |
 | `plugins/gogdb` (GOG Builds, unofficial) | GOG | Versions, edition names |
 | `plugins/epic` (Epic Games Store, egdata.app) | Epic | Search, versions, DLC |
+| `plugins/itch` (itch.io, public pages) | itch.io | Search, versions (undated upload names, no DLC or editions) |
 
 ![Game Store Provider plugins](assets/screenshots/editions-dlc/plugins-game-store-provider.png)
 
@@ -58,15 +59,15 @@ provider categories. There is one plugin per data source:
 
 #### Writing a store plugin
 
-Any plugin, including community plugins that already provide metadata, can add a store by also implementing the
-`GameStoreProvider` extension point of the plugin API. It becomes another source for its store and is combined with
-the others as described above, so users do not have to install a second plugin for the same data. Only implement what
+Store plugins are separate from metadata plugins: a plugin that provides metadata does not provide store data. A
+plugin that wants to add a store ships as its own plugin implementing the `GameStoreProvider` extension point of the
+plugin API. It becomes another source for its store and is combined with the others as described above. Only implement what
 your source provides: `search`, `fetchVersions`, `fetchDlc` and `suggestEditions` all have empty defaults, and a
 plugin that cannot search should set `supportsSearch = false`.
 
-The Steam builds, GOGDB and Epic plugins use unofficial services. `.github/workflows/store-plugins-live-check.yml`
+The Steam builds, GOGDB, Epic and itch.io plugins use unofficial services or scrape public pages. `.github/workflows/store-plugins-live-check.yml`
 runs a small live test for them every week. To run it locally, set `GAMEYFIN_LIVE_TESTS=true` and run the tests of
-`:plugins:steamcmd`, `:plugins:gogdb` and `:plugins:epic`.
+`:plugins:steamcmd`, `:plugins:gogdb`, `:plugins:epic` and `:plugins:itch`.
 
 #### Screenshots
 

@@ -32,3 +32,4 @@ jobs:
           :plugins:steamcmd:cleanTest :plugins:steamcmd:test
           :plugins:gogdb:cleanTest :plugins:gogdb:test
           :plugins:epic:cleanTest :plugins:epic:test
+          :plugins:itch:cleanTest :plugins:itch:test
