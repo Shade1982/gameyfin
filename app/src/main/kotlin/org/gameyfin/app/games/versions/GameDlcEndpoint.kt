@@ -12,11 +12,11 @@ class GameDlcEndpoint(private val dlcService: GameDlcService) {
     fun getIncluded(gameId: Long): List<GameIncludedDlcDto> = dlcService.getIncluded(gameId)
 
     @RolesAllowed(Role.Names.ADMIN)
-    fun getCandidates(store: GameStore, storeAppId: String): List<StoreDlcDto> =
+    fun getCandidates(store: String, storeAppId: String): List<StoreDlcDto> =
         dlcService.getCandidates(store, storeAppId)
 
     @RolesAllowed(Role.Names.ADMIN)
-    fun detectIncluded(gameId: Long, store: GameStore, storeAppId: String): List<StoreDlcDto> =
+    fun detectIncluded(gameId: Long, store: String, storeAppId: String): List<StoreDlcDto> =
         dlcService.detect(gameId, store, storeAppId)
 
     @RolesAllowed(Role.Names.ADMIN)

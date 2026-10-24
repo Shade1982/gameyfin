@@ -22,17 +22,14 @@ data class StoreVersionInfoDto(
  */
 @Service
 class StoreVersionPreviewService(
-    private val providers: List<GameVersionProvider>,
+    private val storeRegistry: GameStoreRegistry,
     private val statusService: GameVersionStatusService
 ) {
 
-    fun preview(gameId: Long, store: GameStore, storeAppId: String): StoreVersionPreviewDto {
-        val id = store.parseId(storeAppId)
-            ?: throw IllegalArgumentException("Invalid ${store.name} product ID or URL: '$storeAppId'")
-        val provider = providers.singleOrNull { it.store == store }
-            ?: throw IllegalStateException("No version provider is registered for $store")
+    fun preview(gameId: Long, store: String, storeAppId: String): StoreVersionPreviewDto {
+        val (activeStore, id) = storeRegistry.parseProductId(store, storeAppId)
 
-        val versions = provider.fetchVersions(id)
+        val versions = activeStore.provider.fetchVersions(id)
         val detected = try {
             matchDetectedVersion(statusService.detectInstalledValues(gameId, store, id), versions) {
                 Triple(it.buildId, it.branch, it.label)

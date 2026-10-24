@@ -7,7 +7,7 @@ import org.gameyfin.app.core.Role
 data class GameStoreLinkDto(
     val id: Long,
     val gameId: Long,
-    val store: GameStore,
+    val store: String,
     val storeAppId: String,
     val tracked: Boolean,
     val edition: String?
@@ -24,7 +24,7 @@ class GameStoreLinkEndpoint(
 
     fun getLinks(gameId: Long): List<GameStoreLinkDto> = linkService.getLinks(gameId).map { it.toDto() }
 
-    fun addLink(gameId: Long, store: GameStore, storeAppId: String): GameStoreLinkDto =
+    fun addLink(gameId: Long, store: String, storeAppId: String): GameStoreLinkDto =
         linkService.addLink(gameId, store, storeAppId).toDto()
 
     fun removeLink(linkId: Long) = linkService.removeLink(linkId)
@@ -33,6 +33,6 @@ class GameStoreLinkEndpoint(
 
     fun setEdition(linkId: Long, edition: String?) = linkService.setEdition(linkId, edition)
 
-    fun getEditionSuggestions(store: GameStore, storeAppId: String): List<String> =
+    fun getEditionSuggestions(store: String, storeAppId: String): List<String> =
         editionSuggestions.suggest(store, storeAppId)
 }

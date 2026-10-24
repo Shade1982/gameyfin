@@ -30,6 +30,6 @@ class GameVersionEndpoint(
     fun refreshVersions(linkId: Long) = refreshTask.refreshLink(linkId)
 
     @RolesAllowed(Role.Names.ADMIN)
-    fun previewVersions(gameId: Long, store: GameStore, storeAppId: String): StoreVersionPreviewDto =
+    fun previewVersions(gameId: Long, store: String, storeAppId: String): StoreVersionPreviewDto =
         previewService.preview(gameId, store, storeAppId)
 }

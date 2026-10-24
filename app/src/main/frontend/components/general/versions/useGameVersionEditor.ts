@@ -1,8 +1,8 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {toast} from "@heroui/react";
-import {GameDlcEndpoint, GameStoreLinkEndpoint, GameVersionEndpoint} from "Frontend/generated/endpoints";
+import {GameDlcEndpoint, GameStoreEndpoint, GameStoreLinkEndpoint, GameVersionEndpoint} from "Frontend/generated/endpoints";
 import IncludedDlcDto from "Frontend/generated/org/gameyfin/app/games/versions/IncludedDlcDto";
-import GameStore from "Frontend/generated/org/gameyfin/app/games/versions/GameStore";
+import GameStoreDto from "Frontend/generated/org/gameyfin/app/games/versions/GameStoreDto";
 
 type VersionStatus = Awaited<ReturnType<typeof GameVersionEndpoint.getStatus>>[number];
 
@@ -13,7 +13,11 @@ export interface StagedLink {
     key: string;
     /** Undefined for links that were added in the editor but not saved yet. */
     linkId?: number;
-    store: GameStore;
+    /** ID of the store, as declared by its plugin */
+    store: string;
+    storeName: string;
+    /** False if the plugin of the store is disabled. Such links are read-only. */
+    storeAvailable: boolean;
     storeAppId: string;
     title?: string;
     tracked: boolean;
@@ -49,6 +53,8 @@ function fromStatus(status: VersionStatus, dlc: IncludedDlcDto[] = []): StagedLi
         key: `link-${status.linkId}`,
         linkId: status.linkId,
         store: status.store,
+        storeName: status.storeName,
+        storeAvailable: status.storeAvailable,
         storeAppId: status.storeAppId,
         tracked: status.tracked,
         originalTracked: status.tracked,
@@ -76,6 +82,8 @@ async function loadLinks(gameId: number): Promise<StagedLink[]> {
 
 export function useGameVersionEditor(gameId: number, isOpen: boolean) {
     const [links, setLinks] = useState<StagedLink[]>([]);
+    /** Stores of the active plugins. Version tracking needs at least one. */
+    const [stores, setStores] = useState<GameStoreDto[]>([]);
     const [loading, setLoading] = useState(false);
     const [pendingKey, setPendingKey] = useState<string>();
     const newCounter = useRef(0);
@@ -85,9 +93,11 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         if (!isOpen) return;
         let cancelled = false;
         setLoading(true);
-        loadLinks(gameId)
-            .then((loaded) => {
-                if (!cancelled) setLinks(loaded);
+        Promise.all([loadLinks(gameId), GameStoreEndpoint.getStores()])
+            .then(([loaded, availableStores]) => {
+                if (cancelled) return;
+                setLinks(loaded);
+                setStores(availableStores);
             })
             .catch((error) => toast.danger("Could not load game versions", {description: errorMessage(error)}))
             .finally(() => {
@@ -115,7 +125,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
     }, []);
 
     /** Fetches the versions of a store product that is not linked yet, without saving anything. */
-    const loadPreview = useCallback(async (key: string, store: GameStore, storeAppId: string, overrideSelection = false) => {
+    const loadPreview = useCallback(async (key: string, store: string, storeAppId: string, overrideSelection = false) => {
         update(key, {loadingVersions: true});
         try {
             const preview = await GameVersionEndpoint.previewVersions(gameId, store, storeAppId);
@@ -152,7 +162,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
         }
     }, [gameId, update]);
 
-    const addLink = useCallback((store: GameStore, storeAppId: string, title?: string, edition = "") => {
+    const addLink = useCallback((store: string, storeAppId: string, title?: string, edition = "") => {
         const duplicate = links.some((link) => !link.removed && link.store === store && link.storeAppId === storeAppId);
         if (duplicate) return;
 
@@ -164,12 +174,13 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
 
         const key = `new-${newCounter.current++}`;
         setLinks((current) => [...current, {
-            key, store, storeAppId, title,
+            key, store, storeName: stores.find((candidate) => candidate.id === store)?.displayName ?? store,
+            storeAvailable: true, storeAppId, title,
             tracked: false, originalTracked: false,
             versions: [], detected: false, removed: false, edition, originalEdition: "", dlc: [], originalDlc: [],
         }]);
         void loadPreview(key, store, storeAppId);
-    }, [links, loadPreview, update]);
+    }, [links, stores, loadPreview, update]);
 
     const refreshPreview = useCallback((key: string) => {
         const link = links.find((candidate) => candidate.key === key);
@@ -264,7 +275,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
                         await GameVersionEndpoint.detectInstalledVersion(created.id);
                     }
                 } catch (error) {
-                    toast.warning(`${link.store} was added, but its versions could not be fetched`, {
+                    toast.warning(`${link.storeName} was added, but its versions could not be fetched`, {
                         description: errorMessage(error) + " Use Refresh to try again.",
                     });
                 }
@@ -295,7 +306,7 @@ export function useGameVersionEditor(gameId: number, isOpen: boolean) {
     }, [dirty, gameId, links]);
 
     return {
-        links: visibleLinks, loading, pendingKey, dirty,
+        links: visibleLinks, stores, available: stores.length > 0, loading, pendingKey, dirty,
         addLink, removeLink, setInstalledVersion, setDlc, setEdition, makePrimary, detect, refresh, refreshPreview, apply,
     };
 }

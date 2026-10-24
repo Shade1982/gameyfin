@@ -1,5 +1,6 @@
 package org.gameyfin.app.games.versions
 
+import org.gameyfin.pluginapi.gamestore.GameStoreVersion
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -13,7 +14,7 @@ class StoreVersionCacheService(
 ) {
 
     @Transactional
-    fun update(linkId: Long, versions: List<StoreVersionInfo>, checkedAt: Instant = Instant.now()) {
+    fun update(linkId: Long, versions: List<GameStoreVersion>, checkedAt: Instant = Instant.now()) {
         val link = linkRepository.findByIdOrNull(linkId)
             ?: throw NoSuchElementException("Store link $linkId not found")
         val existing = versionRepository.findAllByLinkId(linkId)
