@@ -3,14 +3,19 @@ import {Button, Input, Label, ListBox, Select, Spinner, TextField} from "@heroui
 import {GameStoreSearchEndpoint} from "Frontend/generated/endpoints";
 import GameStoreDto from "Frontend/generated/org/gameyfin/app/games/versions/GameStoreDto";
 
+/** Plugin patterns are Java regexes; JS has no inline flags, so a leading (?i) becomes the "i" flag. */
+function toRegExp(pattern: string): RegExp {
+    return pattern.startsWith("(?i)") ? new RegExp(pattern.slice(4), "i") : new RegExp(pattern);
+}
+
 /** Mirrors the server-side parsing, which validates again when the link is saved. */
 function parseStoreId(store: GameStoreDto, input: string): string | undefined {
     const trimmed = input.trim();
     const candidate = store.urlPatterns
-        .map((url) => new RegExp(url).exec(trimmed)?.[1])
+        .map((url) => toRegExp(url).exec(trimmed)?.[1])
         .find(Boolean) ?? trimmed;
     const normalized = store.caseInsensitiveIds ? candidate.toLowerCase() : candidate;
-    return new RegExp(store.productIdPattern).test(normalized) ? normalized : undefined;
+    return toRegExp(store.productIdPattern).test(normalized) ? normalized : undefined;
 }
 
 type SearchResult = Awaited<ReturnType<typeof GameStoreSearchEndpoint.search>>[number];
