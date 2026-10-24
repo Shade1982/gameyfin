@@ -27,31 +27,72 @@ before.
 
 ### Editions, versions, and included DLC
 
-This branch builds on store version tracking for Steam, GOG, and Epic Games. Link store products to a game in its
-metadata editor, label editions such as Deluxe, and compare the latest store version with the version in your library.
-For each store link, manage the DLC included with your copy. Gameyfin can suggest matches from names in the game
-library, and you can adjust the selection or add DLC that the store does not list. Game details show the edition,
-version, and included DLC.
+Gameyfin can track the store version of your games, the edition you own, and the DLC included with your copy. Link
+store products to a game in its metadata editor, label editions such as Deluxe, and compare the latest store version
+with the version in your library. Gameyfin can suggest DLC from names in your game library, and you can adjust the
+selection or add extras the store does not list. Game details show the edition, version, and included extras.
+
+#### Game Store Provider plugins
+
+Stores are provided by plugins in the new **Game Store Provider** category, listed between the metadata and download
+provider categories. There is one plugin per data source:
+
+| Plugin | Store | Provides |
+|---|---|---|
+| `plugins/steamstore` (Steam Store) | Steam | Search, DLC |
+| `plugins/steamcmd` (Steam Builds, unofficial) | Steam | Versions (branch builds) |
+| `plugins/gog` (GOG Store) | GOG | Search, versions, DLC |
+| `plugins/gogdb` (GOG Builds, unofficial) | GOG | Versions, edition names |
+| `plugins/epic` (Epic Games Store, egdata.app) | Epic | Search, versions, DLC |
+
+![Game Store Provider plugins](assets/screenshots/editions-dlc/plugins-game-store-provider.png)
+
+- **Several sources per store:** search and versions use the highest-priority source that has a result and fall back
+  to the others. DLC and edition names from all sources are merged without duplicates.
+- **Order:** the store dropdown follows the plugin order set in the plugin admin menu, so you can put your most used
+  store first.
+- **Search is optional:** plugins that cannot search (SteamCMD, GOGDB) only add data. If no enabled plugin of a store
+  can search, you can still add products by ID or URL.
+- **No store plugin enabled:** the **Store versions** section is hidden and the refresh task does nothing.
+- **Plugin disabled:** its links stay visible read-only with cached data and are not refreshed.
+
+#### Writing a store plugin
+
+Any plugin, including community plugins that already provide metadata, can add a store by also implementing the
+`GameStoreProvider` extension point of the plugin API. It becomes another source for its store and is combined with
+the others as described above, so users do not have to install a second plugin for the same data. Only implement what
+your source provides: `search`, `fetchVersions`, `fetchDlc` and `suggestEditions` all have empty defaults, and a
+plugin that cannot search should set `supportsSearch = false`.
+
+The Steam builds, GOGDB and Epic plugins use unofficial services. `.github/workflows/store-plugins-live-check.yml`
+runs a small live test for them every week. To run it locally, set `GAMEYFIN_LIVE_TESTS=true` and run the tests of
+`:plugins:steamcmd`, `:plugins:gogdb` and `:plugins:epic`.
 
 #### Screenshots
 
-Open **Store versions** in the game metadata editor and choose **Add store**, then pick Steam, GOG, or Epic Games and
+Open **Store versions** in the game metadata editor and choose **Add store**, then pick one of the enabled stores and
 search for the game.
 
 ![Store versions section with no store linked](assets/screenshots/editions-dlc/store-versions-empty.png)
 
 ![Choosing a store](assets/screenshots/editions-dlc/store-picker.png)
 
-Each linked store has an **Extras** section for DLC, edition upgrades, and bonus material that come with your copy. Use
+A linked store has an edition and the product version to track.
+
+![Store link with edition and version](assets/screenshots/editions-dlc/store-link-editor.png)
+
+Each link also has an **Extras** section for DLC, edition upgrades, and bonus material that come with your copy. Use
 **Detect extras** to suggest them from your files, or add extras the store does not list.
 
 ![Managing extras for a store link](assets/screenshots/editions-dlc/extras-editor.png)
 
 Game details show the store version with an update status, plus the selected extras.
 
-![GOG version in game details](assets/screenshots/editions-dlc/details-gog-version.png)
+![Steam version and extras in game details](assets/screenshots/editions-dlc/details-steam-extras.png)
 
-![Steam version and edition upgrades in game details](assets/screenshots/editions-dlc/details-steam-extras.png)
+![Steam update available in game details](assets/screenshots/editions-dlc/details-steam-update.png)
+
+![GOG version in game details](assets/screenshots/editions-dlc/details-gog-version.png)
 
 ### Documentation
 
