@@ -14,6 +14,26 @@ internal fun isValidProductId(id: String) = PRODUCT_ID_REGEX.matches(id)
 internal fun normalizeSearchQuery(query: String): String =
     query.replace(Regex("[^\\p{L}\\p{N}']+"), " ").trim()
 
+private fun words(text: String): List<String> =
+    normalizeSearchQuery(text).lowercase().split(' ').filter { it.isNotEmpty() }
+
+/**
+ * itch.io search is very loose (it also matches descriptions and tags), so keep only games whose title contains at
+ * least half of the query words as word prefixes, best match first. Single letters are ignored ("a", "i").
+ */
+internal fun rankByTitle(results: List<GameStoreProduct>, query: String): List<GameStoreProduct> {
+    val queryWords = words(query).filter { it.length > 1 }.ifEmpty { return results }
+    return results
+        .map { result ->
+            val titleWords = words(result.title)
+            val matched = queryWords.count { q -> titleWords.any { it.startsWith(q) } }
+            Triple(result, matched.toDouble() / queryWords.size, titleWords.joinToString(" ") == words(query).joinToString(" "))
+        }
+        .filter { it.second >= 0.5 }
+        .sortedWith(compareByDescending<Triple<GameStoreProduct, Double, Boolean>> { it.third }.thenByDescending { it.second })
+        .map { it.first }
+}
+
 private val CELL_SPLIT = Regex("(?=<div[^>]*data-game_id=\")")
 
 // itch.io does not keep the order of HTML attributes stable, so attributes are looked up per tag

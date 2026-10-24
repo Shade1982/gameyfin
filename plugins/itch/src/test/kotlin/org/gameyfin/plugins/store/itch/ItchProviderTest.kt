@@ -1,5 +1,6 @@
 package org.gameyfin.plugins.store.itch
 
+import org.gameyfin.pluginapi.gamestore.GameStoreProduct
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -29,14 +30,14 @@ class ItchProviderTest {
     @Test
     fun `parses search results`() {
         val http = ItchHttp {
-            assertEquals("https://itch.io/search?type=games&q=LSD+dream", it)
+            assertEquals("https://itch.io/search?type=games&q=LSD+Revamped", it)
             searchResponse(
                 cell(631448, "https://figglewatts.itch.io/lsd-revamped", "LSD: Revamped") +
-                    cell(2, "https://someone.itch.io/Tom-s_Game", "Tom&#39;s &amp; Co")
+                    cell(2, "https://someone.itch.io/Tom-s_Game", "LSD Tom&#39;s &amp; Co")
             )
         }
 
-        val results = ItchProvider(http).search("LSD: dream")
+        val results = ItchProvider(http).search("LSD: Revamped")
 
         assertEquals(2, results.size)
         assertEquals("figglewatts.itch.io/lsd-revamped", results[0].id)
@@ -44,7 +45,7 @@ class ItchProviderTest {
         assertEquals("Figglewatts", results[0].subtitle)
         assertEquals("https://img.itch.zone/abc/315x250%23c/x.png", results[0].imageUrl)
         assertEquals("someone.itch.io/tom-s_game", results[1].id)
-        assertEquals("Tom's & Co", results[1].title)
+        assertEquals("LSD Tom's & Co", results[1].title)
     }
 
     @Test
@@ -65,9 +66,19 @@ class ItchProviderTest {
     }
 
     @Test
+    fun `drops loosely matching results and ranks the best title first`() {
+        fun p(title: String) = GameStoreProduct(id = "a.itch.io/x", title = title)
+        val ranked = rankByTitle(
+            listOf(p("Time loop"), p("Bumpy Ride at Bore IX"), p("A Bumpy Ride"), p("How to Bump Trains")),
+            "A Bumpy Ride"
+        )
+        assertEquals(listOf("A Bumpy Ride", "Bumpy Ride at Bore IX"), ranked.map { it.title })
+    }
+
+    @Test
     fun `skips games on custom domains and short queries`() {
-        val http = ItchHttp { searchResponse(cell(1, "https://example.com/game", "Custom") + cell(2, "https://a.itch.io/b", "Normal")) }
-        assertEquals(listOf("a.itch.io/b"), ItchProvider(http).search("game").map { it.id })
+        val http = ItchHttp { searchResponse(cell(1, "https://example.com/game", "Custom Normal") + cell(2, "https://a.itch.io/b", "Normal Custom")) }
+        assertEquals(listOf("a.itch.io/b"), ItchProvider(http).search("custom normal").map { it.id })
         assertTrue(ItchProvider { error("no request expected") }.search("a").isEmpty())
     }
 

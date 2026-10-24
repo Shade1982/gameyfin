@@ -31,7 +31,7 @@ class ItchProvider internal constructor(private val http: ItchHttp) : GameStoreP
         val term = normalizeSearchQuery(query)
         if (term.length < 2) return emptyList()
         val encoded = URLEncoder.encode(term.take(100), StandardCharsets.UTF_8)
-        return parseItchSearch(http.getText("$BASE_URL/search?type=games&q=$encoded"))
+        return rankByTitle(parseItchSearch(http.getText("$BASE_URL/search?type=games&q=$encoded")), term)
     }
 
     override fun fetchVersions(productId: String): List<GameStoreVersion> {
