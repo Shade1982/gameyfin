@@ -28,6 +28,8 @@ import org.gameyfin.app.games.extensions.toDto
 import org.gameyfin.app.games.extensions.toDtos
 import org.gameyfin.app.games.extensions.toSummaryDto
 import org.gameyfin.app.games.repositories.GameRepository
+import org.gameyfin.app.games.overrides.FieldSource
+import org.gameyfin.app.games.overrides.GameFieldOverrideService
 import org.gameyfin.app.games.supplements.GameSupplementService
 import org.gameyfin.app.libraries.entities.Library
 import org.gameyfin.app.media.Image
@@ -63,7 +65,8 @@ class GameService(
     private val userService: UserService,
     private val imageService: ImageService,
     private val filesystemService: FilesystemService,
-    private val supplementService: GameSupplementService
+    private val supplementService: GameSupplementService,
+    private val fieldOverrideService: GameFieldOverrideService
 ) {
     companion object {
         private val log = KotlinLogging.logger {}
@@ -260,22 +263,41 @@ class GameService(
         gameRepository.save(existingGame)
     }
 
+    private fun toProviderIds(gameId: Long, idsByPluginId: Map<String, String>): Map<String, ExternalProviderIdDto> =
+        idsByPluginId.mapNotNull { (pluginId, originalId) ->
+            val providerId = pluginManager.getExtensions(pluginId)
+                .filterIsInstance<GameMetadataProvider>().firstOrNull()?.javaClass?.name
+            if (providerId == null) {
+                log.debug { "Skipping unavailable metadata provider $pluginId for game $gameId" }
+                return@mapNotNull null
+            }
+            providerId to ExternalProviderIdDto(pluginId, originalId)
+        }.toMap()
+
+    /** The stored metadata links of a game, in the format expected by the inspector and manual matching. */
+    @Transactional(readOnly = true)
+    fun getMetadataLinks(gameId: Long): GameMetadataLinksDto {
+        val game = getById(gameId)
+        return GameMetadataLinksDto(
+            originalIds = toProviderIds(gameId, game.metadata.originalIds.mapKeys { it.key.pluginId }),
+            supplementIds = toProviderIds(gameId, supplementService.get(gameId)),
+            fieldOverrides = fieldOverrideService.get(gameId).mapValues { it.value.key }
+        )
+    }
+
+    /** Replaces the pinned fields of a game. Applying them to the game is up to the caller (see a metadata refresh). */
+    fun setFieldOverrides(gameId: Long, overrides: Map<String, FieldSource>) {
+        getById(gameId)
+        fieldOverrideService.replace(gameId, overrides)
+    }
+
     @Transactional
     fun updateMetadata(game: Game): Game? {
         var wasGameUpdated = false
 
         val game = getById(game.id!!)
 
-        fun toProviderIds(idsByPluginId: Map<String, String>): Map<String, ExternalProviderIdDto> =
-            idsByPluginId.mapNotNull { (pluginId, originalId) ->
-                val providerId = pluginManager.getExtensions(pluginId)
-                    .filterIsInstance<GameMetadataProvider>().firstOrNull()?.javaClass?.name
-                if (providerId == null) {
-                    log.debug { "Skipping unavailable metadata provider $pluginId for game ${game.id}" }
-                    return@mapNotNull null
-                }
-                providerId to ExternalProviderIdDto(pluginId, originalId)
-            }.toMap()
+        fun toProviderIds(idsByPluginId: Map<String, String>) = toProviderIds(game.id!!, idsByPluginId)
 
         val originalIds = toProviderIds(game.metadata.originalIds.mapKeys { it.key.pluginId })
 
@@ -288,7 +310,8 @@ class GameService(
             replaceGameId = game.id,
             persist = false,
             refreshGame = game,
-            supplementIds = toProviderIds(supplementService.get(game.id!!))
+            supplementIds = toProviderIds(supplementService.get(game.id!!)),
+            fieldOverrides = fieldOverrideService.get(game.id!!)
         ) ?: return null
 
 
@@ -612,7 +635,7 @@ class GameService(
 
     /**
      * Fetches the raw metadata every provider returns for the given selection (without persisting anything)
-     * and determines which source wins each field, using the same precedence as [mergeResults].
+     * and determines which source wins each field by plugin priority, using the same precedence as [mergeResults].
      */
     fun inspectMetadataSources(
         originalIds: Map<String, ExternalProviderIdDto>,
@@ -719,14 +742,16 @@ class GameService(
         library: Library,
         replaceGameId: Long? = null,
         persist: Boolean = true,
-        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
+        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap(),
+        fieldOverrides: Map<String, FieldSource> = emptyMap()
     ): Game? = matchByOriginalIds(
         originalIds,
         path,
         library,
         replaceGameId,
         persist,
-        supplementIds = supplementIds
+        supplementIds = supplementIds,
+        fieldOverrides = fieldOverrides
     )
 
     private fun matchByOriginalIds(
@@ -736,7 +761,8 @@ class GameService(
         replaceGameId: Long?,
         persist: Boolean,
         refreshGame: Game? = null,
-        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
+        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap(),
+        fieldOverrides: Map<String, FieldSource> = emptyMap()
     ): Game? {
         val validResults = fetchMetadataByOriginalIds(originalIds, refreshGame).filterValuesNotNull()
         if (validResults.isEmpty()) return handleMissingMetadata(originalIds, refreshGame)
@@ -745,7 +771,7 @@ class GameService(
             if (supplementIds.isEmpty()) emptyMap()
             else fetchMetadataByOriginalIds(supplementIds, null).filterValuesNotNull()
 
-        val mergedGame = mergeResults(validResults, path, library, supplementResults)
+        val mergedGame = mergeResults(validResults, path, library, supplementResults, fieldOverrides)
         mergedGame.platforms = library.platforms.intersect(mergedGame.platforms.toSet()).toMutableList()
 
         replaceGame(replaceGameId, mergedGame)
@@ -756,6 +782,8 @@ class GameService(
         val savedGame = create(mergedGame)
         // A manual match defines the supplement completely, so a match without one clears the previous one
         savedGame.id?.let { supplementService.replace(it, supplementIds.values) }
+        // Same for the field overrides: they are part of what the user chose in the manual match
+        savedGame.id?.let { fieldOverrideService.replace(it, fieldOverrides) }
         return savedGame
     }
 
@@ -979,7 +1007,8 @@ class GameService(
         results: Map<GameMetadataProvider, PluginApiMetadata?>,
         path: Path,
         library: Library,
-        supplements: Map<GameMetadataProvider, PluginApiMetadata?> = emptyMap()
+        supplements: Map<GameMetadataProvider, PluginApiMetadata?> = emptyMap(),
+        fieldOverrides: Map<String, FieldSource> = emptyMap()
     ): Game {
         val mergedGame = Game(path = path, library = library)
         val metadataMap = mutableMapOf<String, GameFieldMetadata>()
@@ -1004,6 +1033,21 @@ class GameService(
             }
         }
 
+        // Pinned fields are applied first, so they win over the plugin priorities. If the pinned source does not
+        // provide the field (anymore), nothing is set here and the regular order below decides.
+        fun applyOverrides(entries: Map<GameMetadataProvider, PluginApiMetadata?>, baseGame: Boolean) {
+            entries.forEach { (provider, metadata) ->
+                if (metadata == null) return@forEach
+                val sourcePlugin = pluginService.getPluginManagementEntry(provider.javaClass) ?: return@forEach
+                fieldOverrides.filterValues { it.pluginId == sourcePlugin.pluginId && it.baseGame == baseGame }
+                    .keys.forEach { field ->
+                        applyMetadataFields(metadata, sourcePlugin, mergedGame, metadataMap, onlyField = field)
+                    }
+            }
+        }
+
+        applyOverrides(results, baseGame = false)
+        applyOverrides(supplements, baseGame = true)
         apply(results, trackOriginalIds = true)
         apply(supplements, trackOriginalIds = false)
 
@@ -1037,8 +1081,22 @@ class GameService(
         metadata: PluginApiMetadata,
         sourcePlugin: PluginManagementEntry,
         mergedGame: Game,
-        metadataMap: MutableMap<String, GameFieldMetadata>
+        metadataMap: MutableMap<String, GameFieldMetadata>,
+        onlyField: String? = null
     ) {
+        // Limits the application to a single field, used for pinned fields
+        fun <T> setFieldIfAbsent(
+            fieldName: String,
+            value: T?,
+            metadataMap: MutableMap<String, GameFieldMetadata>,
+            sourcePlugin: PluginManagementEntry,
+            setter: (T) -> Unit
+        ) {
+            if (onlyField == null || onlyField == fieldName) {
+                this@GameService.setFieldIfAbsent(fieldName, value, metadataMap, sourcePlugin, setter)
+            }
+        }
+
         setFieldIfAbsent("platforms", metadata.platforms?.takeIf { it.isNotEmpty() }, metadataMap, sourcePlugin) {
             mergedGame.platforms = it.toMutableList()
         }

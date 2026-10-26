@@ -6,6 +6,7 @@ import {
     ListMagnifyingGlassIcon,
     MagnifyingGlassIcon,
     PlusCircleIcon,
+    PushPinIcon,
     XIcon
 } from "@phosphor-icons/react";
 import InspectMetadataSourcesModal from "./InspectMetadataSourcesModal";
@@ -49,6 +50,9 @@ export default function MatchGameModal({
         label: string
     } | null>(null);
 
+    // Fields pinned to a source in the inspector. They belong to one exact selection of results and only apply to it.
+    const [pinned, setPinned] = useState<{ selection: string, overrides: Record<string, string> } | null>(null);
+
     const state = useSnapshot(pluginState).state;
     const librariesState = useSnapshot(libraryState).state;
 
@@ -58,16 +62,18 @@ export default function MatchGameModal({
         setCombineBase(null);
         setPrimary(null);
         setInspected(null);
+        setPinned(null);
     }, [isOpen]);
 
     // Inspects exactly what picking this result would merge, including a pending combine or base game
     function inspect(result: GameSearchResultDto) {
         const itemLabel = combineBase ? `${label(combineBase)} + ${label(result)}` : label(result);
-        if (primary) {
-            setInspected({ids: primary.ids, supplementIds: selectedIds(result), label: `${primary.label} + base ${itemLabel}`});
-        } else {
-            setInspected({ids: selectedIds(result), label: itemLabel});
-        }
+        const {ids, supplementIds} = selectionFor(result);
+        setInspected({
+            ids,
+            supplementIds,
+            label: primary ? `${primary.label} + base ${itemLabel}` : itemLabel
+        });
     }
 
     // Combining unions the provider IDs; the backend merges them by plugin priority as usual
@@ -75,12 +81,28 @@ export default function MatchGameModal({
         return combineBase ? {...combineBase.originalIds, ...result.originalIds} : result.originalIds;
     }
 
+    // Which provider IDs picking this result would merge, as the main match and (optionally) the base game
+    function selectionFor(result: GameSearchResultDto) {
+        return primary
+            ? {ids: primary.ids, supplementIds: selectedIds(result)}
+            : {ids: selectedIds(result), supplementIds: undefined};
+    }
+
+    function selectionKey(ids: Record<string, ExternalProviderIdDto>, supplementIds?: Record<string, ExternalProviderIdDto>) {
+        const part = (map?: Record<string, ExternalProviderIdDto>) =>
+            Object.values(map ?? {}).map(id => `${id.pluginId}:${id.externalProviderId}`).sort().join(",");
+        return `${part(ids)}|${part(supplementIds)}`;
+    }
+
+    function pinsFor(result: GameSearchResultDto): Record<string, string> {
+        const {ids, supplementIds} = selectionFor(result);
+        return pinned?.selection === selectionKey(ids, supplementIds) ? pinned.overrides : {};
+    }
+
     async function matchGame(result: GameSearchResultDto) {
-        if (primary) {
-            await GameEndpoint.matchManually(primary.ids, path, libraryId, replaceGameId, selectedIds(result));
-        } else {
-            await GameEndpoint.matchManually(selectedIds(result), path, libraryId, replaceGameId, undefined);
-        }
+        const {ids, supplementIds} = selectionFor(result);
+        const overrides = pinsFor(result);
+        await GameEndpoint.matchManually(ids, path, libraryId, replaceGameId, supplementIds, overrides);
     }
 
     function addBaseGame(result: GameSearchResultDto) {
@@ -178,7 +200,7 @@ export default function MatchGameModal({
                                                     className="text-center text-muted p-4">Your filter did not match any
                                                     games.</p>}
                                                             items={searchResults}
-                                                            dependencies={[combineBase, primary, isMatching]}>
+                                                            dependencies={[combineBase, primary, isMatching, pinned]}>
                                                     {(item) => (
                                                         <Table.Row key={item.id}>
                                                             <Table.Cell>
@@ -220,6 +242,19 @@ export default function MatchGameModal({
                                                                     <Tooltip.Content placement="bottom">Inspect
                                                                         metadata sources</Tooltip.Content>
                                                                 </Tooltip>
+                                                                {Object.keys(pinsFor(item)).length > 0 && (
+                                                                    <Tooltip>
+                                                                        <Tooltip.Trigger>
+                                                                            <span className="flex items-center px-1 text-success">
+                                                                                <PushPinIcon size={16} weight="fill"/>
+                                                                            </span>
+                                                                        </Tooltip.Trigger>
+                                                                        <Tooltip.Content placement="bottom">
+                                                                            {Object.keys(pinsFor(item)).length} field(s)
+                                                                            pinned to a chosen source
+                                                                        </Tooltip.Content>
+                                                                    </Tooltip>
+                                                                )}
                                                                 {combineBase === null && (
                                                                     <Tooltip>
                                                                         <Tooltip.Trigger>
@@ -290,7 +325,16 @@ export default function MatchGameModal({
                                              }}
                                              originalIds={inspected.ids}
                                              supplementIds={inspected.supplementIds}
-                                             label={inspected.label}/>
+                                             label={inspected.label}
+                                             overrides={pinned?.selection === selectionKey(inspected.ids, inspected.supplementIds) ? pinned.overrides : {}}
+                                             onOverridesChange={(overrides) => setPinned(
+                                                 Object.keys(overrides).length > 0
+                                                     ? {
+                                                         selection: selectionKey(inspected.ids, inspected.supplementIds),
+                                                         overrides
+                                                     }
+                                                     : null
+                                             )}/>
             )}
         </Modal>
     );

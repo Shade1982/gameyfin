@@ -29,7 +29,7 @@ class GameEndpointTest {
     fun setup() {
         gameService = mockk()
         libraryCoreService = mockk()
-        gameEndpoint = GameEndpoint(gameService, libraryCoreService)
+        gameEndpoint = GameEndpoint(gameService, libraryCoreService, mockk(relaxed = true))
 
         mockkStatic("org.gameyfin.app.core.security.SecurityUtilsKt")
     }

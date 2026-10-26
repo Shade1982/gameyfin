@@ -8,7 +8,9 @@ import org.gameyfin.app.core.annotations.DynamicPublicAccess
 import org.gameyfin.app.core.plugins.dto.ExternalProviderIdDto
 import org.gameyfin.app.core.security.isCurrentUserAdmin
 import org.gameyfin.app.games.dto.*
+import org.gameyfin.app.games.overrides.GameFieldOverrideService
 import org.gameyfin.app.libraries.LibraryCoreService
+import org.gameyfin.app.libraries.scan.LibraryGameProcessor
 import org.gameyfin.pluginapi.gamemetadata.Platform
 import reactor.core.publisher.Flux
 import java.nio.file.Path
@@ -19,7 +21,8 @@ import java.time.Instant
 @AnonymousAllowed
 class GameEndpoint(
     private val gameService: GameService,
-    private val libraryCoreService: LibraryCoreService
+    private val libraryCoreService: LibraryCoreService,
+    private val libraryGameProcessor: LibraryGameProcessor
 ) {
     fun subscribe(): Flux<out List<GameEvent>> {
         return if (isCurrentUserAdmin()) {
@@ -57,6 +60,19 @@ class GameEndpoint(
     ): MetadataSourceInspectionDto = gameService.inspectMetadataSources(originalIds, supplementIds ?: emptyMap())
 
     @RolesAllowed(Role.Names.ADMIN)
+    fun getMetadataLinks(gameId: Long): GameMetadataLinksDto = gameService.getMetadataLinks(gameId)
+
+    /**
+     * Pins fields of an already matched game to the given sources (field name to source key) and
+     * refreshes the game right away. An empty map removes all pins.
+     */
+    @RolesAllowed(Role.Names.ADMIN)
+    fun setFieldOverrides(gameId: Long, fieldOverrides: Map<String, String>?) {
+        gameService.setFieldOverrides(gameId, GameFieldOverrideService.parse(fieldOverrides))
+        libraryGameProcessor.processExistingGame(gameService.getById(gameId))
+    }
+
+    @RolesAllowed(Role.Names.ADMIN)
     fun getMetadataSourceStats(): List<MetadataSourceStatsDto> = gameService.getMetadataSourceStats()
 
     @RolesAllowed(Role.Names.ADMIN)
@@ -74,8 +90,10 @@ class GameEndpoint(
         path: String,
         libraryId: Long,
         replaceGameId: Long?,
-        supplementIds: Map<String, ExternalProviderIdDto>? = null
+        supplementIds: Map<String, ExternalProviderIdDto>? = null,
+        fieldOverrides: Map<String, String>? = null
     ) {
+        val parsedOverrides = GameFieldOverrideService.parse(fieldOverrides)
         val library = libraryCoreService.getWithGamesAndIgnoredPaths(libraryId)
             ?: throw IllegalArgumentException("Library with id $libraryId not found")
         val game = gameService.matchManually(
@@ -83,7 +101,8 @@ class GameEndpoint(
             Path.of(path),
             library,
             replaceGameId,
-            supplementIds = supplementIds ?: emptyMap()
+            supplementIds = supplementIds ?: emptyMap(),
+            fieldOverrides = parsedOverrides
         )
         if (game != null) {
             libraryCoreService.addGamesToLibrary(listOf(game), library, true)
