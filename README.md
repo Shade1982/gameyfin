@@ -71,6 +71,32 @@ The edition stays selected and you pick the base game from the list.
 
 ![Picking the base game](assets/screenshots/improved-metadata-search/pick-base-game.png)
 
+### Inspect metadata sources
+
+This branch adds an **Inspect metadata sources** button (magnifier-list icon) to every result in the manual metadata
+match dialog. It shows what each metadata provider returns for that result, side by side, so you can see which source
+gives the better information and whether your plugin priorities make sense. Nothing is shown anywhere else, so the rest
+of the UI stays uncluttered.
+
+* The inspection covers exactly what picking the result would merge: a pending **Combine** and an **Add base game**
+  selection are included (the base game's sources are marked "(base game)").
+* One column per source, one row per field. The value that ends up in the game, following the plugin priorities, is
+  highlighted.
+* Each column header shows how many fields the source provided and how many of those it actually won.
+* Long lists (keywords, screenshots, videos) show a count. Hover a value to see it in full.
+* Inspecting is read-only: nothing is saved and no game is created or changed.
+* The data comes from a new admin-only endpoint, `GameEndpoint.inspectMetadataSources`. There are no database changes.
+
+#### Screenshots
+
+Two results combined. Steam provides most fields, SteamGridDB only wins the header image because Steam has none.
+
+![Inspecting two combined results](assets/screenshots/inspect-metadata-sources/combined-results.png)
+
+An edition with a base game. The base game's source (here 0 used) only fills fields the edition leaves empty.
+
+![Inspecting an edition with a base game](assets/screenshots/inspect-metadata-sources/edition-with-base-game.png)
+
 ### Editions, versions, and included DLC
 
 Gameyfin can track the store version of your games, the edition you own, and the DLC included with your copy. Link
@@ -165,6 +191,7 @@ These features are also available as standalone branches, each with its own READ
 * [Editions, versions, and included DLC](https://github.com/Shade1982/gameyfin/blob/feature/editions-dlc/README.md) (`feature/editions-dlc`)
 * [Server announcements](https://github.com/Shade1982/gameyfin/blob/feature/announcements/README.md) (`feature/announcements`)
 * [Improved metadata search](https://github.com/Shade1982/gameyfin/blob/feature/improved-metadata-search/README.md) (`feature/improved-metadata-search`)
+* [Inspect metadata sources](https://github.com/Shade1982/gameyfin/blob/feature/inspect-metadata-sources/README.md) (`feature/inspect-metadata-sources`)
 
 ### Contribute to Gameyfin
 
