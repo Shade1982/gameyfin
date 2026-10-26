@@ -8,6 +8,7 @@ import org.gameyfin.app.core.annotations.DynamicPublicAccess
 import org.gameyfin.app.core.plugins.dto.ExternalProviderIdDto
 import org.gameyfin.app.core.security.isCurrentUserAdmin
 import org.gameyfin.app.games.dto.*
+import org.gameyfin.app.games.overrides.GameFieldOverrideService
 import org.gameyfin.app.libraries.LibraryCoreService
 import org.gameyfin.pluginapi.gamemetadata.Platform
 import reactor.core.publisher.Flux
@@ -74,8 +75,10 @@ class GameEndpoint(
         path: String,
         libraryId: Long,
         replaceGameId: Long?,
-        supplementIds: Map<String, ExternalProviderIdDto>? = null
+        supplementIds: Map<String, ExternalProviderIdDto>? = null,
+        fieldOverrides: Map<String, String>? = null
     ) {
+        val parsedOverrides = GameFieldOverrideService.parse(fieldOverrides)
         val library = libraryCoreService.getWithGamesAndIgnoredPaths(libraryId)
             ?: throw IllegalArgumentException("Library with id $libraryId not found")
         val game = gameService.matchManually(
@@ -83,7 +86,8 @@ class GameEndpoint(
             Path.of(path),
             library,
             replaceGameId,
-            supplementIds = supplementIds ?: emptyMap()
+            supplementIds = supplementIds ?: emptyMap(),
+            fieldOverrides = parsedOverrides
         )
         if (game != null) {
             libraryCoreService.addGamesToLibrary(listOf(game), library, true)

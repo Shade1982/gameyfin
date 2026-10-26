@@ -1744,3 +1744,55 @@ databaseChangeLog:
       changes:
         - sql:
             sql: UPDATE GAME_STORE_LINK SET STORE = LOWER(STORE)
+
+  - changeSet:
+      id: 2.6.0-game-field-override
+      author: grimsi
+      comment: >
+        Pins a metadata field of a game to a specific source, regardless of the plugin priorities.
+        Kept in its own table so existing game tables are untouched.
+      changes:
+        - createSequence:
+            sequenceName: GAME_FIELD_OVERRIDE_SEQ
+            incrementBy: 50
+        - createTable:
+            tableName: GAME_FIELD_OVERRIDE
+            columns:
+              - column:
+                  name: ID
+                  type: bigint
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: GAME_ID
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: FIELD
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: PLUGIN_ID
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: BASE_GAME
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: GAME_FIELD_OVERRIDE
+            baseColumnNames: GAME_ID
+            referencedTableName: GAME
+            referencedColumnNames: ID
+            constraintName: FK_GAME_FIELD_OVERRIDE_GAME
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: GAME_FIELD_OVERRIDE
+            columnNames: GAME_ID, FIELD
+            constraintName: UQ_GAME_FIELD_OVERRIDE

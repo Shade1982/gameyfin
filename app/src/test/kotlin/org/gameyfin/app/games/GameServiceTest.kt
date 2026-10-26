@@ -14,6 +14,8 @@ import org.gameyfin.app.games.dto.GameSummaryDto
 import org.gameyfin.app.games.dto.GameUpdateDto
 import org.gameyfin.app.games.dto.GameUpdateMetadataDto
 import org.gameyfin.app.games.dto.MetadataSourceStatus
+import org.gameyfin.app.games.overrides.FieldSource
+import org.gameyfin.app.games.overrides.GameFieldOverrideService
 import org.gameyfin.app.games.entities.*
 import org.gameyfin.app.games.extensions.toDtos
 import org.gameyfin.app.games.extensions.toSummaryDto
@@ -83,6 +85,7 @@ class GameServiceTest {
             userService,
             imageService,
             filesystemService,
+            mockk(relaxed = true),
             mockk(relaxed = true)
         )
 
@@ -730,6 +733,83 @@ class GameServiceTest {
         assertEquals(MetadataSourceStatus.OK, result.sources[0].status)
         assertEquals("primary:main-plugin", result.winners["title"])
         assertEquals("base:base-plugin", result.winners["summary"])
+    }
+
+    private fun overrideTestSetup(): Triple<Map<String, ExternalProviderIdDto>, Map<String, ExternalProviderIdDto>, Pair<PluginManagementEntry, PluginManagementEntry>> {
+        val originalIds = mapOf("org.gameyfin.app.games.TestProvider" to ExternalProviderIdDto("main-plugin", "1"))
+        val supplementIds =
+            mapOf("org.gameyfin.app.games.TestSupplementProvider" to ExternalProviderIdDto("base-plugin", "2"))
+        val mainProvider = TestProvider(
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                originalId = "1", title = "Main title", description = "Main summary",
+                platforms = setOf(Platform.PC_MICROSOFT_WINDOWS)
+            )
+        )
+        val baseProvider = TestSupplementProvider(
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                originalId = "2", title = "Base title", description = "Base summary"
+            )
+        )
+        val mainEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "main-plugin"
+            every { priority } returns 5
+        }
+        val baseEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "base-plugin"
+            every { priority } returns 1
+        }
+        every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(
+            mainProvider,
+            baseProvider
+        )
+        every { pluginService.getPluginManagementEntry(mainProvider.javaClass) } returns mainEntry
+        every { pluginService.getPluginManagementEntry(baseProvider.javaClass) } returns baseEntry
+        return Triple(originalIds, supplementIds, mainEntry to baseEntry)
+    }
+
+    @Test
+    fun `matchManually should use the pinned source for a field instead of the plugin priority`() {
+        val (originalIds, supplementIds, entries) = overrideTestSetup()
+
+        val result = gameService.matchManually(
+            originalIds, Path.of("/test/game.exe"), library, null, persist = false,
+            supplementIds = supplementIds,
+            fieldOverrides = mapOf("summary" to FieldSource("base-plugin", baseGame = true))
+        )
+
+        assertNotNull(result)
+        assertEquals("Base summary", result.summary)
+        assertEquals("Main title", result.title)
+        assertEquals(entries.second, (result.metadata.fields["summary"]?.source as GameFieldPluginSource).plugin)
+        assertEquals(entries.first, (result.metadata.fields["title"]?.source as GameFieldPluginSource).plugin)
+    }
+
+    @Test
+    fun `matchManually should fall back to the plugin priority when the pinned source lacks the field`() {
+        val (originalIds, supplementIds, entries) = overrideTestSetup()
+
+        val result = gameService.matchManually(
+            originalIds, Path.of("/test/game.exe"), library, null, persist = false,
+            supplementIds = supplementIds,
+            fieldOverrides = mapOf("platforms" to FieldSource("base-plugin", baseGame = true))
+        )
+
+        assertNotNull(result)
+        assertEquals(entries.first, (result.metadata.fields["platforms"]?.source as GameFieldPluginSource).plugin)
+    }
+
+    @Test
+    fun `parse should reject unknown fields and invalid source keys`() {
+        assertEquals(
+            mapOf("title" to FieldSource("steam", baseGame = true)),
+            GameFieldOverrideService.parse(mapOf("title" to "base:steam"))
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            GameFieldOverrideService.parse(mapOf("path" to "primary:steam"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            GameFieldOverrideService.parse(mapOf("title" to "steam"))
+        }
     }
 
     @Test
