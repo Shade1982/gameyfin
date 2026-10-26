@@ -13,6 +13,7 @@ import org.gameyfin.app.games.dto.GameDto
 import org.gameyfin.app.games.dto.GameSummaryDto
 import org.gameyfin.app.games.dto.GameUpdateDto
 import org.gameyfin.app.games.dto.GameUpdateMetadataDto
+import org.gameyfin.app.games.dto.MetadataSourceStatus
 import org.gameyfin.app.games.entities.*
 import org.gameyfin.app.games.extensions.toDtos
 import org.gameyfin.app.games.extensions.toSummaryDto
@@ -682,6 +683,53 @@ class GameServiceTest {
         assertEquals(mainEntry, (result.metadata.fields["title"]?.source as GameFieldPluginSource).plugin)
         assertEquals(baseEntry, (result.metadata.fields["summary"]?.source as GameFieldPluginSource).plugin)
         assertEquals(setOf(mainEntry), result.metadata.originalIds.keys)
+    }
+
+    @Test
+    fun `inspectMetadataSources should expose per-source values and field winners`() {
+        val originalIds = mapOf(
+            "org.gameyfin.app.games.TestProvider" to ExternalProviderIdDto("main-plugin", "1")
+        )
+        val supplementIds = mapOf(
+            "org.gameyfin.app.games.TestSupplementProvider" to ExternalProviderIdDto("base-plugin", "2")
+        )
+        val mainProvider = TestProvider(
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                originalId = "1",
+                title = "Game Ultimate Edition",
+                genres = setOf(Genre.UNKNOWN, Genre.ADVENTURE),
+                platforms = setOf(Platform.PC_MICROSOFT_WINDOWS)
+            )
+        )
+        val baseProvider = TestSupplementProvider(
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                originalId = "2", title = "Game", description = "Base description"
+            )
+        )
+        val mainEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "main-plugin"
+            every { priority } returns 5
+        }
+        val baseEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "base-plugin"
+            every { priority } returns 1
+        }
+        every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(
+            mainProvider,
+            baseProvider
+        )
+        every { pluginService.getPluginManagementEntry(mainProvider.javaClass) } returns mainEntry
+        every { pluginService.getPluginManagementEntry(baseProvider.javaClass) } returns baseEntry
+
+        val result = gameService.inspectMetadataSources(originalIds, supplementIds)
+
+        assertEquals(listOf("primary:main-plugin", "base:base-plugin"), result.sources.map { it.key })
+        assertEquals(listOf("Base description"), result.sources[1].values["summary"])
+        assertEquals(listOf("Adventure"), result.sources[0].values["genres"])
+        assertEquals(listOf(Platform.PC_MICROSOFT_WINDOWS.displayName), result.sources[0].values["platforms"])
+        assertEquals(MetadataSourceStatus.OK, result.sources[0].status)
+        assertEquals("primary:main-plugin", result.winners["title"])
+        assertEquals("base:base-plugin", result.winners["summary"])
     }
 
     @Test

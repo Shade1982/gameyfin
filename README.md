@@ -71,6 +71,61 @@ The edition stays selected and you pick the base game from the list.
 
 ![Picking the base game](assets/screenshots/improved-metadata-search/pick-base-game.png)
 
+### Inspect metadata sources
+
+This branch adds an **Inspect metadata sources** button (magnifier-list icon) to every result in the manual metadata
+match dialog. It shows what each metadata provider returns for that result, side by side, so you can see which source
+gives the better information and whether your plugin priorities make sense. Nothing is shown anywhere else, so the rest
+of the UI stays uncluttered.
+
+* The inspection covers exactly what picking the result would merge: a pending **Combine** and an **Add base game**
+  selection are included (the base game's sources are marked "(base game)").
+* One column per source, one row per field. The value that ends up in the game, following the plugin priorities, is
+  highlighted in green.
+* Values from other sources that differ from the used value are marked with a warning icon and highlighted in yellow.
+* Each column header shows how many fields the source provided and how many of those it actually won. A source that
+  returned nothing or failed is shown as "No data" or "Error" (hover for the reason) instead of being left out.
+* Genres, platforms and so on use their display names, and a meaningless "Unknown" is hidden next to real values.
+* Cover, header and screenshots are shown as small thumbnails. Hover one for a bigger preview.
+* Click a summary to expand it. Keywords and videos show a count, hover to see them in full.
+* **Only show differences** hides the rows where the sources agree.
+* Inspecting is read-only: nothing is saved and no game is created or changed.
+* The data comes from a new admin-only endpoint, `GameEndpoint.inspectMetadataSources`. There are no database changes.
+
+#### Used in your library
+
+To see which plugin is giving you the most, open a metadata plugin in the plugin administration. It shows how many
+metadata fields of your games currently come from that plugin, per field. This is read from the field sources Gameyfin
+already stores for every game, so it needs no extra data (admin-only endpoint `GameEndpoint.getMetadataSourceStats`).
+Fields you edited yourself are not counted for any plugin.
+
+#### Screenshots
+
+Open the inspector with the magnifier-list icon on a search result. The value used in the game is highlighted in green.
+Here SteamGridDB wins the title, release, cover and header, while Steam supplies the rest.
+
+![Inspecting a search result](assets/screenshots/inspect-metadata-sources/overview.png)
+
+Hover a thumbnail for a bigger preview.
+
+![Thumbnail preview](assets/screenshots/inspect-metadata-sources/thumbnail-preview.png)
+
+**Only show differences** hides the rows where the sources agree. Images always count as different, as their URLs
+differ by nature.
+
+![Only show differences](assets/screenshots/inspect-metadata-sources/only-differences.png)
+
+An edition with a base game. The base game's source (here 0 used) only fills fields the edition leaves empty. Values
+that differ from the used one, such as the base game's title and release year, are marked with a warning icon.
+
+![Inspecting an edition with a base game](assets/screenshots/inspect-metadata-sources/edition-with-base-game.png)
+
+The plugin details show how many fields of your library each metadata plugin currently supplies.
+
+![SteamGridDB usage](assets/screenshots/inspect-metadata-sources/plugin-usage-steamgriddb.png)
+
+![Steam usage](assets/screenshots/inspect-metadata-sources/plugin-usage-steam.png)
+
 ### Editions, versions, and included DLC
 
 Gameyfin can track the store version of your games, the edition you own, and the DLC included with your copy. Link
@@ -165,6 +220,7 @@ These features are also available as standalone branches, each with its own READ
 * [Editions, versions, and included DLC](https://github.com/Shade1982/gameyfin/blob/feature/editions-dlc/README.md) (`feature/editions-dlc`)
 * [Server announcements](https://github.com/Shade1982/gameyfin/blob/feature/announcements/README.md) (`feature/announcements`)
 * [Improved metadata search](https://github.com/Shade1982/gameyfin/blob/feature/improved-metadata-search/README.md) (`feature/improved-metadata-search`)
+* [Inspect metadata sources](https://github.com/Shade1982/gameyfin/blob/feature/inspect-metadata-sources/README.md) (`feature/inspect-metadata-sources`)
 
 ### Contribute to Gameyfin
 

@@ -31,6 +31,14 @@ interface GameRepository : JpaRepository<Game, Long> {
     @Query("SELECT DISTINCT p FROM Game g JOIN g.platforms p")
     fun findAllDistinctPlatforms(): Set<Platform>
 
+    /** Number of fields per plugin and field name that are currently sourced from a plugin */
+    @Query("""
+        SELECT p.pluginId, KEY(f), COUNT(f)
+        FROM Game g JOIN g.metadata.fields f JOIN TREAT(f.source AS GameFieldPluginSource) s JOIN s.plugin p
+        GROUP BY p.pluginId, KEY(f)
+    """)
+    fun countFieldsBySourcePlugin(): List<Array<Any>>
+
     /* Synchronization */
 
     fun findAllByUpdatedAtAfter(since: Instant): List<Game>

@@ -1,6 +1,14 @@
 import {Button, Input, Modal, Spinner, Table, Tooltip} from "@heroui/react";
 import React, {useEffect, useState} from "react";
-import {ArrowRightIcon, LinkIcon, MagnifyingGlassIcon, PlusCircleIcon, XIcon} from "@phosphor-icons/react";
+import {
+    ArrowRightIcon,
+    LinkIcon,
+    ListMagnifyingGlassIcon,
+    MagnifyingGlassIcon,
+    PlusCircleIcon,
+    XIcon
+} from "@phosphor-icons/react";
+import InspectMetadataSourcesModal from "./InspectMetadataSourcesModal";
 import {GameEndpoint} from "Frontend/generated/endpoints";
 import GameSearchResultDto from "Frontend/generated/org/gameyfin/app/games/dto/GameSearchResultDto";
 import PluginIcon from "../plugin/PluginIcon";
@@ -35,6 +43,12 @@ export default function MatchGameModal({
     // Set once the main match is chosen and the user is picking a base game to fill its missing metadata
     const [primary, setPrimary] = useState<{ ids: Record<string, ExternalProviderIdDto>, label: string } | null>(null);
 
+    const [inspected, setInspected] = useState<{
+        ids: Record<string, ExternalProviderIdDto>,
+        supplementIds?: Record<string, ExternalProviderIdDto>,
+        label: string
+    } | null>(null);
+
     const state = useSnapshot(pluginState).state;
     const librariesState = useSnapshot(libraryState).state;
 
@@ -43,7 +57,18 @@ export default function MatchGameModal({
         setSearchResults([]);
         setCombineBase(null);
         setPrimary(null);
+        setInspected(null);
     }, [isOpen]);
+
+    // Inspects exactly what picking this result would merge, including a pending combine or base game
+    function inspect(result: GameSearchResultDto) {
+        const itemLabel = combineBase ? `${label(combineBase)} + ${label(result)}` : label(result);
+        if (primary) {
+            setInspected({ids: primary.ids, supplementIds: selectedIds(result), label: `${primary.label} + base ${itemLabel}`});
+        } else {
+            setInspected({ids: selectedIds(result), label: itemLabel});
+        }
+    }
 
     // Combining unions the provider IDs; the backend merges them by plugin priority as usual
     function selectedIds(result: GameSearchResultDto) {
@@ -183,6 +208,18 @@ export default function MatchGameModal({
                                                             </Table.Cell>
                                                             <Table.Cell>
                                                                 <div className="flex flex-row gap-1">
+                                                                <Tooltip>
+                                                                    <Tooltip.Trigger>
+                                                                        <Button isIconOnly size="sm"
+                                                                                variant="tertiary"
+                                                                                isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
+                                                                                onPress={() => inspect(item)}>
+                                                                            <ListMagnifyingGlassIcon/>
+                                                                        </Button>
+                                                                    </Tooltip.Trigger>
+                                                                    <Tooltip.Content placement="bottom">Inspect
+                                                                        metadata sources</Tooltip.Content>
+                                                                </Tooltip>
                                                                 {combineBase === null && (
                                                                     <Tooltip>
                                                                         <Tooltip.Trigger>
@@ -246,6 +283,15 @@ export default function MatchGameModal({
                     </Modal.Dialog>
                 </Modal.Container>
             </Modal.Backdrop>
+            {inspected && (
+                <InspectMetadataSourcesModal isOpen={true}
+                                             onOpenChange={(open) => {
+                                                 if (!open) setInspected(null);
+                                             }}
+                                             originalIds={inspected.ids}
+                                             supplementIds={inspected.supplementIds}
+                                             label={inspected.label}/>
+            )}
         </Modal>
     );
 }

@@ -610,6 +610,109 @@ class GameService(
         return sortedResults
     }
 
+    /**
+     * Fetches the raw metadata every provider returns for the given selection (without persisting anything)
+     * and determines which source wins each field, using the same precedence as [mergeResults].
+     */
+    fun inspectMetadataSources(
+        originalIds: Map<String, ExternalProviderIdDto>,
+        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
+    ): MetadataSourceInspectionDto {
+        fun collect(ids: Map<String, ExternalProviderIdDto>, baseGame: Boolean): List<MetadataSourceDataDto> {
+            if (ids.isEmpty()) return emptyList()
+            val futures = metadataPlugins.mapNotNull { provider ->
+                val originalId = ids[provider.javaClass.name]?.externalProviderId ?: return@mapNotNull null
+                val entry = pluginService.getPluginManagementEntry(provider.javaClass) ?: return@mapNotNull null
+                val future = executor.submitWithMdc<Pair<PluginApiMetadata?, String?>> {
+                    try {
+                        Pair(provider.fetchById(originalId), null)
+                    } catch (e: Exception) {
+                        log.warn { "Error inspecting metadata for [id: $originalId] with plugin '${entry.pluginId}': ${e.message}" }
+                        log.debug(e) {}
+                        Pair(null, e.message ?: e.javaClass.simpleName)
+                    }
+                }
+                Triple(entry, originalId, future)
+            }
+            return futures.map { (entry, originalId, future) ->
+                val (metadata, error) = future.get()
+                MetadataSourceDataDto(
+                    key = "${if (baseGame) "base" else "primary"}:${entry.pluginId}",
+                    pluginId = entry.pluginId,
+                    priority = entry.priority,
+                    baseGame = baseGame,
+                    originalId = metadata?.originalId ?: originalId,
+                    status = when {
+                        metadata != null -> MetadataSourceStatus.OK
+                        error != null -> MetadataSourceStatus.ERROR
+                        else -> MetadataSourceStatus.NO_DATA
+                    },
+                    error = error,
+                    values = metadata?.toDisplayValues() ?: emptyMap()
+                )
+            }.sortedByDescending { it.priority }
+        }
+
+        val sources = collect(originalIds, false) + collect(supplementIds, true)
+        val winners = mutableMapOf<String, String>()
+        sources.forEach { source ->
+            source.values.keys.forEach { field -> winners.putIfAbsent(field, source.key) }
+        }
+        return MetadataSourceInspectionDto(sources, winners)
+    }
+
+    fun getMetadataSourceStats(): List<MetadataSourceStatsDto> =
+        gameRepository.countFieldsBySourcePlugin().map {
+            MetadataSourceStatsDto(it[0] as String, it[1] as String, (it[2] as Number).toLong())
+        }
+
+    /**
+     * Converts the metadata to values for display. Enums use their display name and URLs are kept as they are,
+     * so the UI can render image previews.
+     */
+    private fun PluginApiMetadata.toDisplayValues(): Map<String, List<String>> {
+        val values = linkedMapOf<String, List<String>>()
+        fun put(field: String, value: Collection<Any?>?) {
+            val strings = value?.mapNotNull {
+                when (it) {
+                    null -> null
+                    is Platform -> it.displayName
+                    is Genre -> it.displayName
+                    is Theme -> it.displayName
+                    is GameFeature -> it.displayName
+                    is PlayerPerspective -> it.displayName
+                    else -> it.toString()
+                }?.takeIf(String::isNotBlank)
+            }.orEmpty()
+            if (strings.isNotEmpty()) values[field] = strings
+        }
+
+        // "Unknown" is only noise next to real values, but stays visible if it is all the source provides
+        fun <T : Enum<T>> withoutUnknown(entries: Set<T>?): Collection<T>? {
+            val known = entries?.filter { it.name != "UNKNOWN" }
+            return if (known.isNullOrEmpty()) entries else known
+        }
+
+        put("title", listOf(title))
+        put("platforms", platforms)
+        put("release", listOfNotNull(release))
+        put("summary", listOf(description))
+        put("developers", developedBy)
+        put("publishers", publishedBy)
+        put("userRating", listOf(userRating))
+        put("criticRating", listOf(criticRating))
+        put("genres", withoutUnknown(genres))
+        put("themes", withoutUnknown(themes))
+        put("keywords", keywords)
+        put("features", features)
+        put("perspectives", withoutUnknown(perspectives))
+        put("coverImage", coverUrls?.take(1))
+        put("headerImage", headerUrls?.take(1))
+        put("images", screenshotUrls)
+        put("videoUrls", videoUrls)
+        return values
+    }
+
     fun matchManually(
         originalIds: Map<String, ExternalProviderIdDto>,
         path: Path,

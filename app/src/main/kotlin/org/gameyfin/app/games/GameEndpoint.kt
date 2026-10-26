@@ -51,6 +51,15 @@ class GameEndpoint(
     }
 
     @RolesAllowed(Role.Names.ADMIN)
+    fun inspectMetadataSources(
+        originalIds: Map<String, ExternalProviderIdDto>,
+        supplementIds: Map<String, ExternalProviderIdDto>? = null
+    ): MetadataSourceInspectionDto = gameService.inspectMetadataSources(originalIds, supplementIds ?: emptyMap())
+
+    @RolesAllowed(Role.Names.ADMIN)
+    fun getMetadataSourceStats(): List<MetadataSourceStatsDto> = gameService.getMetadataSourceStats()
+
+    @RolesAllowed(Role.Names.ADMIN)
     fun updateGame(game: GameUpdateDto) = gameService.edit(game)
 
     @RolesAllowed(Role.Names.ADMIN)
