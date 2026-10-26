@@ -610,6 +610,64 @@ class GameService(
         return sortedResults
     }
 
+    /**
+     * Fetches the raw metadata every provider returns for the given selection (without persisting anything)
+     * and determines which source wins each field, using the same precedence as [mergeResults].
+     */
+    fun inspectMetadataSources(
+        originalIds: Map<String, ExternalProviderIdDto>,
+        supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
+    ): MetadataSourceInspectionDto {
+        fun collect(ids: Map<String, ExternalProviderIdDto>, isBaseGame: Boolean): List<MetadataSourceDataDto> {
+            if (ids.isEmpty()) return emptyList()
+            return fetchMetadataByOriginalIds(ids, null).mapNotNull { (provider, metadata) ->
+                if (metadata == null) return@mapNotNull null
+                val entry = pluginService.getPluginManagementEntry(provider.javaClass) ?: return@mapNotNull null
+                MetadataSourceDataDto(
+                    key = "${if (isBaseGame) "base" else "primary"}:${entry.pluginId}",
+                    pluginId = entry.pluginId,
+                    priority = entry.priority,
+                    isBaseGame = isBaseGame,
+                    originalId = metadata.originalId,
+                    values = metadata.toDisplayValues()
+                )
+            }.sortedByDescending { it.priority }
+        }
+
+        val sources = collect(originalIds, false) + collect(supplementIds, true)
+        val winners = mutableMapOf<String, String>()
+        sources.forEach { source ->
+            source.values.keys.forEach { field -> winners.putIfAbsent(field, source.key) }
+        }
+        return MetadataSourceInspectionDto(sources, winners)
+    }
+
+    private fun PluginApiMetadata.toDisplayValues(): Map<String, List<String>> {
+        val values = linkedMapOf<String, List<String>>()
+        fun put(field: String, value: Collection<Any?>?) {
+            val strings = value?.mapNotNull { it?.toString()?.takeIf(String::isNotBlank) }.orEmpty()
+            if (strings.isNotEmpty()) values[field] = strings
+        }
+        put("title", listOf(title))
+        put("platforms", platforms)
+        put("release", listOfNotNull(release))
+        put("summary", listOf(description))
+        put("developers", developedBy)
+        put("publishers", publishedBy)
+        put("userRating", listOf(userRating))
+        put("criticRating", listOf(criticRating))
+        put("genres", genres)
+        put("themes", themes)
+        put("keywords", keywords)
+        put("features", features)
+        put("perspectives", perspectives)
+        put("coverImage", coverUrls?.take(1))
+        put("headerImage", headerUrls?.take(1))
+        put("images", screenshotUrls)
+        put("videoUrls", videoUrls)
+        return values
+    }
+
     fun matchManually(
         originalIds: Map<String, ExternalProviderIdDto>,
         path: Path,

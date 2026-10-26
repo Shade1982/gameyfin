@@ -685,6 +685,45 @@ class GameServiceTest {
     }
 
     @Test
+    fun `inspectMetadataSources should expose per-source values and field winners`() {
+        val originalIds = mapOf(
+            "org.gameyfin.app.games.TestProvider" to ExternalProviderIdDto("main-plugin", "1")
+        )
+        val supplementIds = mapOf(
+            "org.gameyfin.app.games.TestSupplementProvider" to ExternalProviderIdDto("base-plugin", "2")
+        )
+        val mainProvider = TestProvider(
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(originalId = "1", title = "Game Ultimate Edition")
+        )
+        val baseProvider = TestSupplementProvider(
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                originalId = "2", title = "Game", description = "Base description"
+            )
+        )
+        val mainEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "main-plugin"
+            every { priority } returns 5
+        }
+        val baseEntry = mockk<PluginManagementEntry>(relaxed = true) {
+            every { pluginId } returns "base-plugin"
+            every { priority } returns 1
+        }
+        every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(
+            mainProvider,
+            baseProvider
+        )
+        every { pluginService.getPluginManagementEntry(mainProvider.javaClass) } returns mainEntry
+        every { pluginService.getPluginManagementEntry(baseProvider.javaClass) } returns baseEntry
+
+        val result = gameService.inspectMetadataSources(originalIds, supplementIds)
+
+        assertEquals(listOf("primary:main-plugin", "base:base-plugin"), result.sources.map { it.key })
+        assertEquals(listOf("Base description"), result.sources[1].values["summary"])
+        assertEquals("primary:main-plugin", result.winners["title"])
+        assertEquals("base:base-plugin", result.winners["summary"])
+    }
+
+    @Test
     fun `update should return null when game not found`() {
         val game = createTestGame(999L)
         every { gameRepository.findByIdOrNull(999L) } returns null
