@@ -126,6 +126,25 @@ The plugin details show how many fields of your library each metadata plugin cur
 
 ![Steam usage](assets/screenshots/inspect-metadata-sources/plugin-usage-steam.png)
 
+### Pin metadata fields to a source
+
+This branch builds on the inspector and makes it interactive. When plugin priority picks the worse value for a field,
+you can **pin** that field to the source you prefer instead.
+
+* In the inspector, click the pin next to a value to use that source for the field. Click the pin on a pinned value, or
+  pin the source that wins anyway, to remove the pin. **Reset pinned fields** removes all of them.
+* **In the match dialog:** pins are applied when you pick that result (the row shows a green pin). They belong to that
+  exact selection, so picking a different result or changing the combined/base game selection starts without pins.
+* **On an existing game:** the pin icon next to the edit and search buttons in the game view opens the inspector for the
+  game's stored sources. **Apply** saves the pins and refreshes the game right away.
+* A pin follows the *source*, not a frozen value: a metadata refresh keeps using the pinned source and picks up its
+  updated data. If the pinned source stops providing the field, plugin priority decides again.
+* Fields you edited by hand are never overwritten by a pin. A new manual match replaces the pins of the game with the
+  ones you set in that match.
+* Admin-only endpoints: `GameEndpoint.getMetadataLinks`, `GameEndpoint.setFieldOverrides`, and an optional
+  `fieldOverrides` argument on `matchManually`. Pins are stored in a new `game_field_override` table (Liquibase
+  changeset `2.6.0-game-field-override`).
+
 ### Editions, versions, and included DLC
 
 Gameyfin can track the store version of your games, the edition you own, and the DLC included with your copy. Link
@@ -221,6 +240,7 @@ These features are also available as standalone branches, each with its own READ
 * [Server announcements](https://github.com/Shade1982/gameyfin/blob/feature/announcements/README.md) (`feature/announcements`)
 * [Improved metadata search](https://github.com/Shade1982/gameyfin/blob/feature/improved-metadata-search/README.md) (`feature/improved-metadata-search`)
 * [Inspect metadata sources](https://github.com/Shade1982/gameyfin/blob/feature/inspect-metadata-sources/README.md) (`feature/inspect-metadata-sources`)
+* [Pin metadata fields to a source](https://github.com/Shade1982/gameyfin/blob/feature/metadata-field-overrides/README.md) (`feature/metadata-field-overrides`)
 
 ### Contribute to Gameyfin
 

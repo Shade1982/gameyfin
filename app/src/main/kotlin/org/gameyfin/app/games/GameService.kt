@@ -263,22 +263,41 @@ class GameService(
         gameRepository.save(existingGame)
     }
 
+    private fun toProviderIds(gameId: Long, idsByPluginId: Map<String, String>): Map<String, ExternalProviderIdDto> =
+        idsByPluginId.mapNotNull { (pluginId, originalId) ->
+            val providerId = pluginManager.getExtensions(pluginId)
+                .filterIsInstance<GameMetadataProvider>().firstOrNull()?.javaClass?.name
+            if (providerId == null) {
+                log.debug { "Skipping unavailable metadata provider $pluginId for game $gameId" }
+                return@mapNotNull null
+            }
+            providerId to ExternalProviderIdDto(pluginId, originalId)
+        }.toMap()
+
+    /** The stored metadata links of a game, in the format expected by the inspector and manual matching. */
+    @Transactional(readOnly = true)
+    fun getMetadataLinks(gameId: Long): GameMetadataLinksDto {
+        val game = getById(gameId)
+        return GameMetadataLinksDto(
+            originalIds = toProviderIds(gameId, game.metadata.originalIds.mapKeys { it.key.pluginId }),
+            supplementIds = toProviderIds(gameId, supplementService.get(gameId)),
+            fieldOverrides = fieldOverrideService.get(gameId).mapValues { it.value.key }
+        )
+    }
+
+    /** Replaces the pinned fields of a game. Applying them to the game is up to the caller (see a metadata refresh). */
+    fun setFieldOverrides(gameId: Long, overrides: Map<String, FieldSource>) {
+        getById(gameId)
+        fieldOverrideService.replace(gameId, overrides)
+    }
+
     @Transactional
     fun updateMetadata(game: Game): Game? {
         var wasGameUpdated = false
 
         val game = getById(game.id!!)
 
-        fun toProviderIds(idsByPluginId: Map<String, String>): Map<String, ExternalProviderIdDto> =
-            idsByPluginId.mapNotNull { (pluginId, originalId) ->
-                val providerId = pluginManager.getExtensions(pluginId)
-                    .filterIsInstance<GameMetadataProvider>().firstOrNull()?.javaClass?.name
-                if (providerId == null) {
-                    log.debug { "Skipping unavailable metadata provider $pluginId for game ${game.id}" }
-                    return@mapNotNull null
-                }
-                providerId to ExternalProviderIdDto(pluginId, originalId)
-            }.toMap()
+        fun toProviderIds(idsByPluginId: Map<String, String>) = toProviderIds(game.id!!, idsByPluginId)
 
         val originalIds = toProviderIds(game.metadata.originalIds.mapKeys { it.key.pluginId })
 

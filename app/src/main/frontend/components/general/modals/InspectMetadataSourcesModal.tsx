@@ -1,4 +1,4 @@
-import {Modal, Spinner, Tooltip} from "@heroui/react";
+import {Button, Modal, Spinner, Tooltip} from "@heroui/react";
 import {PushPinIcon, PushPinSlashIcon, WarningIcon} from "@phosphor-icons/react";
 import React, {useEffect, useState} from "react";
 import {GameEndpoint} from "Frontend/generated/endpoints";
@@ -20,6 +20,9 @@ interface InspectMetadataSourcesModalProps {
     /** Field name -> key of the source the field is pinned to. Together with onOverridesChange it makes the table interactive. */
     overrides?: Record<string, string>;
     onOverridesChange?: (overrides: Record<string, string>) => void;
+    /** Shows an apply button in the footer (used when editing an existing game) */
+    onApply?: () => void;
+    isApplying?: boolean;
 }
 
 const IMAGE_FIELDS = ["coverImage", "headerImage"];
@@ -93,7 +96,9 @@ export default function InspectMetadataSourcesModal({
                                                         supplementIds,
                                                         label,
                                                         overrides = {},
-                                                        onOverridesChange
+                                                        onOverridesChange,
+                                                        onApply,
+                                                        isApplying = false
                                                     }: InspectMetadataSourcesModalProps) {
     const state = useSnapshot(pluginState).state;
     const [inspection, setInspection] = useState<MetadataSourceInspectionDto | null>(null);
@@ -173,8 +178,9 @@ export default function InspectMetadataSourcesModal({
                                 {interactive && (
                                     <p className="text-sm text-muted">
                                         Click the pin next to a value to use that source for the field instead of the
-                                        plugin priority. Pinned fields are applied when you pick this result and kept
-                                        when the metadata is refreshed.
+                                        plugin priority. {onApply
+                                        ? "Pinned fields are applied when you click Apply and kept when the metadata is refreshed."
+                                        : "Pinned fields are applied when you pick this result and kept when the metadata is refreshed."}
                                     </p>
                                 )}
                                 {interactive && pinnedCount > 0 && (
@@ -289,6 +295,12 @@ export default function InspectMetadataSourcesModal({
                                 </div>
                             )}
                         </Modal.Body>
+                        {onApply && (
+                            <Modal.Footer>
+                                <Button variant="tertiary" onPress={() => onOpenChange(false)}>Cancel</Button>
+                                <Button variant="primary" isPending={isApplying} onPress={onApply}>Apply</Button>
+                            </Modal.Footer>
+                        )}
                     </Modal.Dialog>
                 </Modal.Container>
             </Modal.Backdrop>

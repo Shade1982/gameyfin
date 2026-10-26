@@ -10,6 +10,7 @@ import org.gameyfin.app.core.security.isCurrentUserAdmin
 import org.gameyfin.app.games.dto.*
 import org.gameyfin.app.games.overrides.GameFieldOverrideService
 import org.gameyfin.app.libraries.LibraryCoreService
+import org.gameyfin.app.libraries.scan.LibraryGameProcessor
 import org.gameyfin.pluginapi.gamemetadata.Platform
 import reactor.core.publisher.Flux
 import java.nio.file.Path
@@ -20,7 +21,8 @@ import java.time.Instant
 @AnonymousAllowed
 class GameEndpoint(
     private val gameService: GameService,
-    private val libraryCoreService: LibraryCoreService
+    private val libraryCoreService: LibraryCoreService,
+    private val libraryGameProcessor: LibraryGameProcessor
 ) {
     fun subscribe(): Flux<out List<GameEvent>> {
         return if (isCurrentUserAdmin()) {
@@ -56,6 +58,19 @@ class GameEndpoint(
         originalIds: Map<String, ExternalProviderIdDto>,
         supplementIds: Map<String, ExternalProviderIdDto>? = null
     ): MetadataSourceInspectionDto = gameService.inspectMetadataSources(originalIds, supplementIds ?: emptyMap())
+
+    @RolesAllowed(Role.Names.ADMIN)
+    fun getMetadataLinks(gameId: Long): GameMetadataLinksDto = gameService.getMetadataLinks(gameId)
+
+    /**
+     * Pins fields of an already matched game to the given sources (field name to source key) and
+     * refreshes the game right away. An empty map removes all pins.
+     */
+    @RolesAllowed(Role.Names.ADMIN)
+    fun setFieldOverrides(gameId: Long, fieldOverrides: Map<String, String>?) {
+        gameService.setFieldOverrides(gameId, GameFieldOverrideService.parse(fieldOverrides))
+        libraryGameProcessor.processExistingGame(gameService.getById(gameId))
+    }
 
     @RolesAllowed(Role.Names.ADMIN)
     fun getMetadataSourceStats(): List<MetadataSourceStatsDto> = gameService.getMetadataSourceStats()

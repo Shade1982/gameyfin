@@ -19,11 +19,13 @@ import {
     InfoIcon,
     MagnifyingGlassIcon,
     PencilIcon,
+    PushPinIcon,
     StarIcon,
     TrashIcon,
 } from "@phosphor-icons/react";
 import {useAuth} from "Frontend/util/auth";
 import MatchGameModal from "Frontend/components/general/modals/MatchGameModal";
+import GameMetadataSourcesModal from "Frontend/components/general/modals/GameMetadataSourcesModal";
 import EditGameMetadataModal from "Frontend/components/general/modals/EditGameMetadataModal";
 import GameUpdateDto from "Frontend/generated/org/gameyfin/app/games/dto/GameUpdateDto";
 import Markdown from "react-markdown";
@@ -42,6 +44,7 @@ export default function GameView() {
 
     const editGameModal = useOverlayState();
     const matchGameModal = useOverlayState();
+    const sourcesModal = useOverlayState();
 
     const state = useSnapshot(gameState);
     const id = gameId ? parseInt(gameId) : undefined;
@@ -209,6 +212,15 @@ export default function GameView() {
                                     </Button>
                                 </Tooltip.Trigger>
                                 <Tooltip.Content>Search for metadata</Tooltip.Content>
+                            </Tooltip>
+                            <Tooltip>
+                                <Tooltip.Trigger>
+                                    <Button isIconOnly variant="tertiary" aria-label="Metadata sources"
+                                            onPress={sourcesModal.open}>
+                                        <PushPinIcon/>
+                                    </Button>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content>Inspect metadata sources</Tooltip.Content>
                             </Tooltip>
                             <Tooltip>
                                 <Tooltip.Trigger>
@@ -398,6 +410,10 @@ export default function GameView() {
                 <EditGameMetadataModal gameId={game.id}
                                        isOpen={editGameModal.isOpen}
                                        onOpenChange={editGameModal.setOpen}/>
+                <GameMetadataSourcesModal gameId={game.id}
+                                          title={game.title}
+                                          isOpen={sourcesModal.isOpen}
+                                          onOpenChange={sourcesModal.setOpen}/>
                 <MatchGameModal path={(game.metadata as GameMetadataAdminDto).path!}
                                 libraryId={game.libraryId}
                                 replaceGameId={game.id}
