@@ -145,6 +145,18 @@ you can **pin** that field to the source you prefer instead.
   `fieldOverrides` argument on `matchManually`. Pins are stored in a new `game_field_override` table (Liquibase
   changeset `2.6.0-game-field-override`).
 
+#### Screenshots
+
+The inspector opened from the game view of an existing game. Pins appear next to values that are not currently used.
+**Apply** saves them.
+
+![Inspector on an existing game](assets/screenshots/metadata-field-overrides/existing-game-inspector.png)
+
+Four fields pinned to the base game's source. Pinned values show a filled pin and are highlighted as used, while the
+values that lost are marked with a warning icon. **Reset pinned fields** removes all pins.
+
+![Pinned fields](assets/screenshots/metadata-field-overrides/pinned-fields.png)
+
 ### Editions, versions, and included DLC
 
 Gameyfin can track the store version of your games, the edition you own, and the DLC included with your copy. Link
