@@ -13,6 +13,7 @@ import org.gameyfin.app.games.dto.GameDto
 import org.gameyfin.app.games.dto.GameSummaryDto
 import org.gameyfin.app.games.dto.GameUpdateDto
 import org.gameyfin.app.games.dto.GameUpdateMetadataDto
+import org.gameyfin.app.games.dto.MetadataSourceStatus
 import org.gameyfin.app.games.entities.*
 import org.gameyfin.app.games.extensions.toDtos
 import org.gameyfin.app.games.extensions.toSummaryDto
@@ -693,7 +694,12 @@ class GameServiceTest {
             "org.gameyfin.app.games.TestSupplementProvider" to ExternalProviderIdDto("base-plugin", "2")
         )
         val mainProvider = TestProvider(
-            org.gameyfin.pluginapi.gamemetadata.GameMetadata(originalId = "1", title = "Game Ultimate Edition")
+            org.gameyfin.pluginapi.gamemetadata.GameMetadata(
+                originalId = "1",
+                title = "Game Ultimate Edition",
+                genres = setOf(Genre.UNKNOWN, Genre.ADVENTURE),
+                platforms = setOf(Platform.PC_MICROSOFT_WINDOWS)
+            )
         )
         val baseProvider = TestSupplementProvider(
             org.gameyfin.pluginapi.gamemetadata.GameMetadata(
@@ -719,6 +725,9 @@ class GameServiceTest {
 
         assertEquals(listOf("primary:main-plugin", "base:base-plugin"), result.sources.map { it.key })
         assertEquals(listOf("Base description"), result.sources[1].values["summary"])
+        assertEquals(listOf("Adventure"), result.sources[0].values["genres"])
+        assertEquals(listOf(Platform.PC_MICROSOFT_WINDOWS.displayName), result.sources[0].values["platforms"])
+        assertEquals(MetadataSourceStatus.OK, result.sources[0].status)
         assertEquals("primary:main-plugin", result.winners["title"])
         assertEquals("base:base-plugin", result.winners["summary"])
     }
