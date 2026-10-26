@@ -101,13 +101,30 @@ Fields you edited yourself are not counted for any plugin.
 
 #### Screenshots
 
-Two results combined. Steam provides most fields, SteamGridDB only wins the header image because Steam has none.
+Open the inspector with the magnifier-list icon on a search result. The value used in the game is highlighted in green.
+Here SteamGridDB wins the title, release, cover and header, while Steam supplies the rest.
 
-![Inspecting two combined results](assets/screenshots/inspect-metadata-sources/combined-results.png)
+![Inspecting a search result](assets/screenshots/inspect-metadata-sources/overview.png)
 
-An edition with a base game. The base game's source (here 0 used) only fills fields the edition leaves empty.
+Hover a thumbnail for a bigger preview.
+
+![Thumbnail preview](assets/screenshots/inspect-metadata-sources/thumbnail-preview.png)
+
+**Only show differences** hides the rows where the sources agree. Images always count as different, as their URLs
+differ by nature.
+
+![Only show differences](assets/screenshots/inspect-metadata-sources/only-differences.png)
+
+An edition with a base game. The base game's source (here 0 used) only fills fields the edition leaves empty. Values
+that differ from the used one, such as the base game's title and release year, are marked with a warning icon.
 
 ![Inspecting an edition with a base game](assets/screenshots/inspect-metadata-sources/edition-with-base-game.png)
+
+The plugin details show how many fields of your library each metadata plugin currently supplies.
+
+![SteamGridDB usage](assets/screenshots/inspect-metadata-sources/plugin-usage-steamgriddb.png)
+
+![Steam usage](assets/screenshots/inspect-metadata-sources/plugin-usage-steam.png)
 
 ### Editions, versions, and included DLC
 
