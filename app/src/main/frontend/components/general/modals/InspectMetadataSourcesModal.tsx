@@ -116,7 +116,7 @@ export default function InspectMetadataSourcesModal({
                                                             <div className="flex flex-col">
                                                                 <span>
                                                                     {state[source.pluginId]?.name ?? source.pluginId}
-                                                                    {source.isBaseGame ? " (base game)" : ""}
+                                                                    {source.baseGame ? " (base game)" : ""}
                                                                 </span>
                                                                 <span className="text-xs font-normal text-muted">
                                                                     {Object.keys(source.values ?? {}).length} provided, {won} used

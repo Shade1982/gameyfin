@@ -11,7 +11,7 @@ class MetadataSourceDataDto(
     val key: String,
     val pluginId: String,
     val priority: Int,
-    val isBaseGame: Boolean,
+    val baseGame: Boolean,
     val originalId: String,
     /** Field name -> display values. Fields the source did not provide are omitted. */
     val values: Map<String, List<String>>

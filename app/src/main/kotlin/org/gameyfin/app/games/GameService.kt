@@ -618,16 +618,16 @@ class GameService(
         originalIds: Map<String, ExternalProviderIdDto>,
         supplementIds: Map<String, ExternalProviderIdDto> = emptyMap()
     ): MetadataSourceInspectionDto {
-        fun collect(ids: Map<String, ExternalProviderIdDto>, isBaseGame: Boolean): List<MetadataSourceDataDto> {
+        fun collect(ids: Map<String, ExternalProviderIdDto>, baseGame: Boolean): List<MetadataSourceDataDto> {
             if (ids.isEmpty()) return emptyList()
             return fetchMetadataByOriginalIds(ids, null).mapNotNull { (provider, metadata) ->
                 if (metadata == null) return@mapNotNull null
                 val entry = pluginService.getPluginManagementEntry(provider.javaClass) ?: return@mapNotNull null
                 MetadataSourceDataDto(
-                    key = "${if (isBaseGame) "base" else "primary"}:${entry.pluginId}",
+                    key = "${if (baseGame) "base" else "primary"}:${entry.pluginId}",
                     pluginId = entry.pluginId,
                     priority = entry.priority,
-                    isBaseGame = isBaseGame,
+                    baseGame = baseGame,
                     originalId = metadata.originalId,
                     values = metadata.toDisplayValues()
                 )
