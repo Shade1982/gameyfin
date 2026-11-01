@@ -33,7 +33,10 @@ class GameMediaSearchTest {
             every { pluginId } returns "second-plugin"
             every { priority } returns 5
         }
-        val service = GameService(mockk(), manager, plugins, mockk(), mockk(), mockk(), mockk(), mockk())
+        val service = GameService(
+            mockk(), manager, plugins, mockk(), mockk(),
+            mockk(), mockk(), mockk(), mockk()
+        )
         val results = service.getPotentialMatches("Game", emptySet())
         assertEquals(1, results.size)
         assertEquals(mapOf(
