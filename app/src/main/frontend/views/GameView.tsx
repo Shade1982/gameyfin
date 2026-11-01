@@ -35,6 +35,7 @@ import {collectionState} from "Frontend/state/CollectionState";
 import {GameMetadataAdminDto} from "Frontend/dtos/GameDtos";
 import GameVersionDetails from "Frontend/components/general/versions/GameVersionDetails";
 import {libraryState} from "Frontend/state/LibraryState.ts";
+import ConfirmModal from "Frontend/components/general/modals/ConfirmModal";
 
 export default function GameView() {
     const {gameId} = useParams();
@@ -45,6 +46,8 @@ export default function GameView() {
     const editGameModal = useOverlayState();
     const matchGameModal = useOverlayState();
     const sourcesModal = useOverlayState();
+    const deleteModal = useOverlayState();
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const state = useSnapshot(gameState);
     const id = gameId ? parseInt(gameId) : undefined;
@@ -102,10 +105,21 @@ export default function GameView() {
 
     async function deleteGame() {
         if (!game) return;
-        await GameEndpoint.deleteGame(game.id);
-        toast.success("Game deleted", {
-            description: `${game.title} removed from Gameyfin!`,
-        });
+        setIsDeleting(true);
+        try {
+            await GameEndpoint.deleteGame(game.id);
+            toast.success("Game deleted", {
+                description: `${game.title} removed from Gameyfin!`,
+            });
+            deleteModal.close();
+            navigate("/");
+        } catch (e) {
+            toast.warning("Error deleting game", {
+                description: `${game.title} could not be removed from Gameyfin!`,
+            });
+        } finally {
+            setIsDeleting(false);
+        }
     }
 
     return game && (
@@ -224,10 +238,7 @@ export default function GameView() {
                             </Tooltip>
                             <Tooltip>
                                 <Tooltip.Trigger>
-                                    <Button isIconOnly variant="danger" onPress={async () => {
-                                        await deleteGame();
-                                        navigate("/");
-                                    }}>
+                                    <Button isIconOnly variant="danger" onPress={deleteModal.open}>
                                         <TrashIcon/>
                                     </Button>
                                 </Tooltip.Trigger>
@@ -401,12 +412,21 @@ export default function GameView() {
                                 blurhash: image.blurhash
                             }))}
                             videosUrls={game.videoUrls}
+                            mediaOrder={game.mediaOrder}
                             className="-mx-24"
                         />
                     </div>
                 </div>
             </div>
             {isAdmin(auth) && <>
+                <ConfirmModal isOpen={deleteModal.isOpen}
+                              onOpenChange={deleteModal.setOpen}
+                              title="Remove from library"
+                              confirmLabel="Remove"
+                              isPending={isDeleting}
+                              onConfirm={deleteGame}>
+                    <p>Remove <code>{game.title}</code> from the library? This can not be undone.</p>
+                </ConfirmModal>
                 <EditGameMetadataModal gameId={game.id}
                                        isOpen={editGameModal.isOpen}
                                        onOpenChange={editGameModal.setOpen}/>

@@ -114,6 +114,51 @@ class GameServiceTest {
     }
 
     @Test
+    fun `manual creation persists confirmed game without metadata providers`() {
+        val path = Path.of("manual-game").toAbsolutePath().normalize().toString()
+        every { filesystemService.validateGamePath(path, library) } returns Path.of(path)
+        every { gameRepository.existsByMetadataPath(path) } returns false
+        every { filesystemService.calculateFileSize(path, library) } returns 123L
+        every { gameRepository.save(any()) } answers { firstArg<Game>().also { it.id = 42L } }
+
+        val game = gameService.createManually("  Obscure title  ", path, library)
+
+        assertEquals("Obscure title", game.title)
+        assertEquals(path, game.metadata.path)
+        assertEquals(123L, game.metadata.fileSize)
+        assertTrue(game.metadata.matchConfirmed)
+        assertTrue(game.metadata.originalIds.isEmpty())
+        assertEquals(library, game.library)
+        verify { pluginManager wasNot Called }
+    }
+
+    @Test
+    fun `manual creation rejects duplicate paths and blank fields`() {
+        val path = Path.of("manual-game").toAbsolutePath().normalize().toString()
+        every { filesystemService.validateGamePath(path, library) } returns Path.of(path)
+        every { filesystemService.validateGamePath("relative/path", library) } throws IllegalArgumentException("Path must be absolute")
+        every { gameRepository.existsByMetadataPath(path) } returns true
+
+        assertThrows(IllegalArgumentException::class.java) { gameService.createManually("Title", path, library) }
+        assertThrows(IllegalArgumentException::class.java) { gameService.createManually(" ", path, library) }
+        assertThrows(IllegalArgumentException::class.java) { gameService.createManually("Title", " ", library) }
+        assertThrows(IllegalArgumentException::class.java) { gameService.createManually("Title", "relative/path", library) }
+        verify(exactly = 0) { gameRepository.save(any()) }
+    }
+
+    @Test
+    fun `manual creation rejects invalid library path before sizing or persistence`() {
+        every { filesystemService.validateGamePath(any(), library) } throws IllegalArgumentException("Invalid library path")
+
+        assertThrows(IllegalArgumentException::class.java) {
+            gameService.createManually("Title", "/outside/game", library)
+        }
+
+        verify(exactly = 0) { filesystemService.calculateFileSize(any(), any()) }
+        verify { gameRepository wasNot Called }
+    }
+
+    @Test
     fun `sync without timestamp should return all game summaries`() {
         val game1 = createTestGame(1L)
         val game2 = createTestGame(2L)
@@ -616,7 +661,7 @@ class GameServiceTest {
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { gameRepository.findByIdOrNull(replaceGameId) } returns existingGame
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, library, replaceGameId, persist = false)
 
@@ -886,7 +931,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
         every { library.platforms } returns mutableListOf(Platform.PC_MICROSOFT_WINDOWS)
 
         val result = gameService.updateMetadata(game)
@@ -917,7 +962,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.updateMetadata(game)
 
@@ -951,7 +996,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
         every { library.platforms } returns mutableListOf(Platform.PC_MICROSOFT_WINDOWS)
 
         val result = gameService.updateMetadata(game)
@@ -990,7 +1035,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.updateMetadata(game)
 
@@ -1208,7 +1253,7 @@ class GameServiceTest {
         every { config.get(ConfigProperties.Libraries.Scan.TitleExtractionRegex) } returns "^[^\\(\\[]*"
         every { config.get(ConfigProperties.Libraries.Scan.TitleMatchMinRatio) } returns 85
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val path = Path.of("/test/Test Game (2023).exe")
         val result = gameService.matchFromFile(path, library)
@@ -1281,7 +1326,7 @@ class GameServiceTest {
         every { config.get(ConfigProperties.Libraries.Scan.ExtractTitleUsingRegex) } returns false
         every { config.get(ConfigProperties.Libraries.Scan.TitleMatchMinRatio) } returns 85
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val path = Path.of("/test/Test Game.exe")
         val result = gameService.matchFromFile(path, pcLibrary)
@@ -1315,7 +1360,7 @@ class GameServiceTest {
         every { config.get(ConfigProperties.Libraries.Scan.TitleExtractionRegex) } returns "["  // Invalid regex
         every { config.get(ConfigProperties.Libraries.Scan.TitleMatchMinRatio) } returns 85
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val path = Path.of("/test/Test Game.exe")
         val result = gameService.matchFromFile(path, library)
@@ -1361,7 +1406,7 @@ class GameServiceTest {
         every { companyService.createOrGet(any()) } returns mockk(relaxed = true)
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
         every { imageService.downloadIfNew(any()) } just Runs
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
         every { gameRepository.save(any()) } returns savedGame
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = true)
@@ -1416,7 +1461,7 @@ class GameServiceTest {
         every { pluginService.getPluginManagementEntry(highPriorityProvider.javaClass) } returns highPriorityEntry
         every { pluginService.getPluginManagementEntry(lowPriorityProvider.javaClass) } returns lowPriorityEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = false)
 
@@ -1460,7 +1505,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, restrictedLibrary, null, persist = false)
 
@@ -1502,7 +1547,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, pcOnlyLibrary, null, persist = false)
 
@@ -1540,7 +1585,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, unrestrictedLibrary, null, persist = false)
 
@@ -1585,7 +1630,7 @@ class GameServiceTest {
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { gameRepository.findByIdOrNull(replaceGameId) } returns existingGame
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, restrictedLibrary, replaceGameId, persist = false)
 
@@ -2263,7 +2308,7 @@ class GameServiceTest {
         every { imageService.createOrGet(match { it.type == ImageType.HEADER }) } returns headerImage
         every { imageService.createOrGet(match { it.type == ImageType.SCREENSHOT }) } returns screenshotImage
         every { imageService.downloadIfNew(any()) } just Runs
-        every { filesystemService.calculateFileSize(any()) } returns 2000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 2000L
         every { gameRepository.save(any()) } answers { firstArg() }
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = true)
@@ -2301,7 +2346,7 @@ class GameServiceTest {
         every { companyService.createOrGet(any()) } returns mockk(relaxed = true)
         every { imageService.createOrGet(any()) } returns coverImage
         every { imageService.downloadIfNew(any()) } throws RuntimeException("Download failed")
-        every { filesystemService.calculateFileSize(any()) } returns 2000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 2000L
         every { gameRepository.save(any()) } answers { firstArg() }
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = true)
@@ -2369,7 +2414,7 @@ class GameServiceTest {
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { companyService.createOrGet(any()) } answers { firstArg() }
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 5000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 5000L
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = false)
 
@@ -2432,7 +2477,7 @@ class GameServiceTest {
         every { pluginManager.getExtensions(GameMetadataProvider::class.java) } returns listOf(provider)
         every { pluginService.getPluginManagementEntry(provider.javaClass) } returns pluginEntry
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 1000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 1000L
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = false)
 
@@ -2521,7 +2566,7 @@ class GameServiceTest {
         every { pluginService.getPluginManagementEntry(lowProvider.javaClass) } returns lowEntry
         every { companyService.createOrGet(any()) } answers { firstArg() }
         every { imageService.createOrGet(any()) } returns mockk(relaxed = true)
-        every { filesystemService.calculateFileSize(any()) } returns 3000L
+        every { filesystemService.calculateFileSize(any(), any()) } returns 3000L
 
         val result = gameService.matchManually(originalIds, path, library, null, persist = false)
 
