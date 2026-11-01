@@ -80,3 +80,4 @@ out/
 /plugins-installed/
 /env.local
 /enable-plugins.sh
+/app/logs/
