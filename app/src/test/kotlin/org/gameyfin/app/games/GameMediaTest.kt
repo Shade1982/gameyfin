@@ -36,7 +36,7 @@ class GameMediaTest {
     private val userService = mockk<UserService>()
     private val pluginService = mockk<PluginService>()
     private val service =
-        GameService(repository, mockk(), pluginService, mockk(), mockk(), userService, imageService, mockk())
+        GameService(repository, mockk(), pluginService, mockk(), mockk(), userService, imageService, mockk(), mockk())
     private val first = Image(id = 11, type = ImageType.SCREENSHOT)
     private val second = Image(id = 12, type = ImageType.SCREENSHOT)
     private lateinit var game: Game
