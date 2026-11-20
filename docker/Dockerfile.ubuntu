@@ -12,6 +12,7 @@ COPY ${JAR_FILE} application.jar
 RUN java -Djarmode=tools -jar application.jar extract --layers --destination extracted && \
     chmod -R go-w extracted
 
+
 # ── Stage 2: AOT cache training (must use the *runtime* JVM) ─────────────
 # Boot the full application, wait for readiness, fire warm-up HTTP requests
 # that exercise Vaadin/Hilla, Spring Security, Hibernate, and PF4J plugin

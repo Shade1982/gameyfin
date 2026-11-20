@@ -1,10 +1,11 @@
 import ResponsiveDialog from "Frontend/components/layout/ResponsiveDialog";
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {Button, Link, Modal, Spinner, toast, Tooltip} from "@heroui/react";
 import {Form, Formik} from "formik";
 import PluginLogo from "Frontend/components/general/plugin/PluginLogo";
 import MarkdownContent from "Frontend/components/general/MarkdownContent";
-import {PluginEndpoint} from "Frontend/generated/endpoints";
+import {GameEndpoint, PluginEndpoint} from "Frontend/generated/endpoints";
+import {metadataFieldLabel} from "../metadata/MetadataFieldLabels";
 import PluginDto from "Frontend/generated/org/gameyfin/app/core/plugins/dto/PluginDto";
 import {ArrowClockwiseIcon} from "@phosphor-icons/react";
 import PluginConfigMetadataDto from "Frontend/generated/org/gameyfin/app/core/plugins/dto/PluginConfigMetadataDto";
@@ -25,6 +26,28 @@ enum ValidationState {
 
 export default function PluginDetailsModal({plugin, isOpen, onOpenChange}: PluginDetailsModalProps) {
     const [configValidated, setConfigValidated] = useState<ValidationState>(ValidationState.UNCHECKED);
+    const [fieldCounts, setFieldCounts] = useState<Record<string, number>>({});
+
+    // How many fields of the games in the library currently come from this plugin
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        GameEndpoint.getMetadataSourceStats()
+            .then(stats => {
+                if (cancelled) return;
+                const counts: Record<string, number> = {};
+                (stats ?? []).filter(stat => stat?.pluginId === plugin.id)
+                    .forEach(stat => counts[stat!.field] = Number(stat!.count));
+                setFieldCounts(counts);
+            })
+            .catch(() => {
+                if (!cancelled) setFieldCounts({});
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, plugin.id]);
+    const usedFields = Object.entries(fieldCounts).sort((a, b) => b[1] - a[1]);
 
     async function saveConfig(values: Record<string, string>) {
         await PluginEndpoint.updateConfig(plugin.id, values);
@@ -112,6 +135,23 @@ export default function PluginDetailsModal({plugin, isOpen, onOpenChange}: Plugi
                                                     <b>Description</b>
                                                     <MarkdownContent>{plugin.description}</MarkdownContent>
                                                 </div>
+
+                                                {usedFields.length > 0 && (
+                                                    <div className="flex flex-col text-sm mt-4 gap-1">
+                                                        <b>Used in your library</b>
+                                                        <p className="text-muted">
+                                                            {usedFields.reduce((sum, [, count]) => sum + count, 0)} metadata
+                                                            fields of your games currently come from this plugin.
+                                                        </p>
+                                                        <div className="flex flex-row flex-wrap gap-x-4 gap-y-1">
+                                                            {usedFields.map(([field, count]) => (
+                                                                <span key={field}>
+                                                                    {metadataFieldLabel(field)}: <b>{count}</b>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <div className="flex flex-wrap items-center mt-4 gap-2">
                                                     <b>Configuration</b>
