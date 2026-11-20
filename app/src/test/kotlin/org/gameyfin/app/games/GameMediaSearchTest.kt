@@ -45,7 +45,7 @@ class GameMediaSearchTest {
         }
         val service = GameService(
             mockk(), manager, plugins, mockk(), mockk(),
-            mockk(), mockk(), mockk(), mockk()
+            mockk(), mockk(), mockk(), mockk(), mockk()
         )
         val results = service.getPotentialMatches("Game", emptySet())
         assertEquals(1, results.size)

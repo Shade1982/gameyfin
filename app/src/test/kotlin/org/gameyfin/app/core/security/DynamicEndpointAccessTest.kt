@@ -25,7 +25,7 @@ import kotlin.test.assertEquals
 class DynamicEndpointAccessTest {
     private val config = mockk<ConfigService>()
     private val games = mockk<GameService>()
-    private val endpoint = AspectJProxyFactory(GameEndpoint(games, mockk())).apply {
+    private val endpoint = AspectJProxyFactory(GameEndpoint(games, mockk(), mockk())).apply {
         addAspect(LiveSubscriptionSecurity(mockk<UserEvents>(), config))
     }.getProxy<GameEndpoint>()
 
@@ -46,7 +46,7 @@ class DynamicEndpointAccessTest {
     @Test
     fun `dynamic access denial passes through endpoint exception handling as 401`() {
         every { config.get(ConfigProperties.Security.AllowPublicAccess) } returns false
-        val handled = AspectJProxyFactory(GameEndpoint(games, mockk())).apply {
+        val handled = AspectJProxyFactory(GameEndpoint(games, mockk(), mockk())).apply {
             addAspect(EndpointExceptionHandler())
             addAspect(LiveSubscriptionSecurity(mockk<UserEvents>(), config))
         }.getProxy<GameEndpoint>()

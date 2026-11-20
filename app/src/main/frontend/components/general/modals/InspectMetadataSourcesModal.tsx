@@ -1,5 +1,5 @@
-import {Modal, Spinner, Tooltip} from "@heroui/react";
-import {WarningIcon} from "@phosphor-icons/react";
+import {Button, Modal, Spinner, Tooltip} from "@heroui/react";
+import {PushPinIcon, PushPinSlashIcon, WarningIcon} from "@phosphor-icons/react";
 import React, {useEffect, useState} from "react";
 import {GameEndpoint} from "Frontend/generated/endpoints";
 import {useSnapshot} from "valtio/react";
@@ -17,6 +17,12 @@ interface InspectMetadataSourcesModalProps {
     originalIds: Record<string, ExternalProviderIdDto>;
     supplementIds?: Record<string, ExternalProviderIdDto>;
     label: string;
+    /** Field name -> key of the source the field is pinned to. Together with onOverridesChange it makes the table interactive. */
+    overrides?: Record<string, string>;
+    onOverridesChange?: (overrides: Record<string, string>) => void;
+    /** Shows an apply button in the footer (used when editing an existing game) */
+    onApply?: () => void;
+    isApplying?: boolean;
 }
 
 const IMAGE_FIELDS = ["coverImage", "headerImage"];
@@ -88,7 +94,11 @@ export default function InspectMetadataSourcesModal({
                                                         onOpenChange,
                                                         originalIds,
                                                         supplementIds,
-                                                        label
+                                                        label,
+                                                        overrides = {},
+                                                        onOverridesChange,
+                                                        onApply,
+                                                        isApplying = false
                                                     }: InspectMetadataSourcesModalProps) {
     const state = useSnapshot(pluginState).state;
     const [inspection, setInspection] = useState<MetadataSourceInspectionDto | null>(null);
@@ -113,7 +123,25 @@ export default function InspectMetadataSourcesModal({
     }, [isOpen]);
 
     const sources = inspection?.sources ?? [];
-    const winners = inspection?.winners ?? {};
+    const defaultWinners = inspection?.winners ?? {};
+    const interactive = onOverridesChange !== undefined;
+
+    // A pinned source only wins if it provides the field, otherwise the plugin priority decides (as in the merge)
+    const winners: Record<string, string> = {...defaultWinners};
+    Object.entries(overrides).forEach(([field, key]) => {
+        if (sources.find(s => s.key === key)?.values?.[field]) winners[field] = key;
+    });
+
+    function pin(field: string, sourceKey: string) {
+        if (!onOverridesChange) return;
+        const next = {...overrides};
+        // Choosing the source that wins by priority anyway is the same as removing the pin
+        if (sourceKey === defaultWinners[field] || overrides[field] === sourceKey) delete next[field];
+        else next[field] = sourceKey;
+        onOverridesChange(next);
+    }
+
+    const pinnedCount = Object.keys(overrides).filter(field => overrides[field] === winners[field]).length;
 
     // A source conflicts if it provides a different value than the source that wins the field
     function conflicts(field: string, sourceKey: string): boolean {
@@ -147,6 +175,20 @@ export default function InspectMetadataSourcesModal({
                                     used in the resulting game, based on plugin priority. Values that differ from
                                     the used one are marked with a warning icon.
                                 </p>
+                                {interactive && (
+                                    <p className="text-sm text-muted">
+                                        Click the pin next to a value to use that source for the field instead of the
+                                        plugin priority. {onApply
+                                        ? "Pinned fields are applied when you click Apply and kept when the metadata is refreshed."
+                                        : "Pinned fields are applied when you pick this result and kept when the metadata is refreshed."}
+                                    </p>
+                                )}
+                                {interactive && pinnedCount > 0 && (
+                                    <button type="button" className="text-sm underline w-fit cursor-pointer"
+                                            onClick={() => onOverridesChange!({})}>
+                                        Reset {pinnedCount} pinned field{pinnedCount === 1 ? "" : "s"}
+                                    </button>
+                                )}
                                 {sources.length > 0 && (
                                     <label className="flex flex-row items-center gap-2 text-sm mt-2 cursor-pointer w-fit">
                                         <input type="checkbox" checked={onlyDifferences}
@@ -216,6 +258,7 @@ export default function InspectMetadataSourcesModal({
                                                 {sources.map(source => {
                                                     const values = source.values?.[field];
                                                     const isWinner = winners[field] === source.key;
+                                                    const isPinned = overrides[field] === source.key && isWinner;
                                                     const differs = conflicts(field, source.key);
                                                     return (
                                                         <td key={source.key}
@@ -229,6 +272,17 @@ export default function InspectMetadataSourcesModal({
                                                                         </span>
                                                                     )}
                                                                     <FieldValue field={field} values={values}/>
+                                                                    {interactive && (isPinned || !isWinner) && (
+                                                                        <button type="button"
+                                                                                className={`ml-auto shrink-0 cursor-pointer pt-0.5 ${isPinned ? "text-success" : "text-muted hover:text-foreground"}`}
+                                                                                title={isPinned ? "Pinned. Click to use the plugin priority again" : `Use this source for ${METADATA_FIELD_LABELS[field]}`}
+                                                                                onClick={() => pin(field, source.key)}>
+                                                                            {isPinned ?
+                                                                                <PushPinSlashIcon size={16}
+                                                                                                  weight="fill"/> :
+                                                                                <PushPinIcon size={16}/>}
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             ) : <span className="text-muted">-</span>}
                                                         </td>
@@ -241,6 +295,12 @@ export default function InspectMetadataSourcesModal({
                                 </div>
                             )}
                         </Modal.Body>
+                        {onApply && (
+                            <Modal.Footer>
+                                <Button variant="tertiary" onPress={() => onOpenChange(false)}>Cancel</Button>
+                                <Button variant="primary" isPending={isApplying} onPress={onApply}>Apply</Button>
+                            </Modal.Footer>
+                        )}
                     </Modal.Dialog>
                 </Modal.Container>
             </Modal.Backdrop>

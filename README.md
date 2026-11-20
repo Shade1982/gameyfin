@@ -140,75 +140,36 @@ The plugin details show how many fields of your library each metadata plugin cur
 
 ![Steam usage](assets/screenshots/inspect-metadata-sources/plugin-usage-steam.png)
 
-### Editions, versions, and included DLC
+### Pin metadata fields to a source
 
-Gameyfin can track the store version of your games, the edition you own, and the DLC included with your copy. Link
-store products to a game in its metadata editor, label editions such as Deluxe, and compare the latest store version
-with the version in your library. Gameyfin can suggest DLC from names in your game library, and you can adjust the
-selection or add extras the store does not list. Game details show the edition, version, and included extras.
+This branch builds on the inspector and makes it interactive. When plugin priority picks the worse value for a field,
+you can **pin** that field to the source you prefer instead.
 
-#### Game Store Provider plugins
-
-Stores are provided by plugins in the new **Game Store Provider** category, listed between the metadata and download
-provider categories. There is one plugin per data source:
-
-| Plugin | Store | Provides |
-|---|---|---|
-| `plugins/steamstore` (Steam Store) | Steam | Search, DLC |
-| `plugins/steamcmd` (Steam Builds, unofficial) | Steam | Versions (branch builds) |
-| `plugins/gog` (GOG Store) | GOG | Search, versions, DLC |
-| `plugins/gogdb` (GOG Builds, unofficial) | GOG | Versions, edition names |
-| `plugins/epic` (Epic Games Store, egdata.app) | Epic | Search, versions, DLC |
-| `plugins/itch` (itch.io, public pages) | itch.io | Search, versions (undated upload names, no DLC or editions) |
-
-![Game Store Provider plugins](assets/screenshots/editions-dlc/plugins-game-store-provider.png)
-
-- **Several sources per store:** search and versions use the highest-priority source that has a result and fall back
-  to the others. DLC and edition names from all sources are merged without duplicates.
-- **Order:** the store dropdown follows the plugin order set in the plugin admin menu, so you can put your most used
-  store first.
-- **Search is optional:** plugins that cannot search (SteamCMD, GOGDB) only add data. If no enabled plugin of a store
-  can search, you can still add products by ID or URL.
-- **No store plugin enabled:** the **Store versions** section is hidden and the refresh task does nothing.
-- **Plugin disabled:** its links stay visible read-only with cached data and are not refreshed.
-
-#### Writing a store plugin
-
-Store plugins are separate from metadata plugins: a plugin that provides metadata does not provide store data. A
-plugin that wants to add a store ships as its own plugin implementing the `GameStoreProvider` extension point of the
-plugin API. It becomes another source for its store and is combined with the others as described above. Only implement what
-your source provides: `search`, `fetchVersions`, `fetchDlc` and `suggestEditions` all have empty defaults, and a
-plugin that cannot search should set `supportsSearch = false`.
-
-The Steam builds, GOGDB, Epic and itch.io plugins use unofficial services or scrape public pages. `.github/workflows/store-plugins-live-check.yml`
-runs a small live test for them every week. To run it locally, set `GAMEYFIN_LIVE_TESTS=true` and run the tests of
-`:plugins:steamcmd`, `:plugins:gogdb`, `:plugins:epic` and `:plugins:itch`.
+* In the inspector, click the pin next to a value to use that source for the field. Click the pin on a pinned value, or
+  pin the source that wins anyway, to remove the pin. **Reset pinned fields** removes all of them.
+* **In the match dialog:** pins are applied when you pick that result (the row shows a green pin). They belong to that
+  exact selection, so picking a different result or changing the combined/base game selection starts without pins.
+* **On an existing game:** the pin icon next to the edit and search buttons in the game view opens the inspector for the
+  game's stored sources. **Apply** saves the pins and refreshes the game right away.
+* A pin follows the *source*, not a frozen value: a metadata refresh keeps using the pinned source and picks up its
+  updated data. If the pinned source stops providing the field, plugin priority decides again.
+* Fields you edited by hand are never overwritten by a pin. A new manual match replaces the pins of the game with the
+  ones you set in that match.
+* Admin-only endpoints: `GameEndpoint.getMetadataLinks`, `GameEndpoint.setFieldOverrides`, and an optional
+  `fieldOverrides` argument on `matchManually`. Pins are stored in a new `game_field_override` table (Liquibase
+  changeset `2.6.0-game-field-override`).
 
 #### Screenshots
 
-Open **Store versions** in the game metadata editor and choose **Add store**, then pick one of the enabled stores and
-search for the game.
+The inspector opened from the game view of an existing game. Pins appear next to values that are not currently used.
+**Apply** saves them.
 
-![Store versions section with no store linked](assets/screenshots/editions-dlc/store-versions-empty.png)
+![Inspector on an existing game](assets/screenshots/metadata-field-overrides/existing-game-inspector.png)
 
-![Choosing a store](assets/screenshots/editions-dlc/store-picker.png)
+Four fields pinned to the base game's source. Pinned values show a filled pin and are highlighted as used, while the
+values that lost are marked with a warning icon. **Reset pinned fields** removes all pins.
 
-A linked store has an edition and the product version to track.
-
-![Store link with edition and version](assets/screenshots/editions-dlc/store-link-editor.png)
-
-Each link also has an **Extras** section for DLC, edition upgrades, and bonus material that come with your copy. Use
-**Detect extras** to suggest them from your files, or add extras the store does not list.
-
-![Managing extras for a store link](assets/screenshots/editions-dlc/extras-editor.png)
-
-Game details show the store version with an update status, plus the selected extras.
-
-![Steam version and extras in game details](assets/screenshots/editions-dlc/details-steam-extras.png)
-
-![Steam update available in game details](assets/screenshots/editions-dlc/details-steam-update.png)
-
-![GOG version in game details](assets/screenshots/editions-dlc/details-gog-version.png)
+![Pinned fields](assets/screenshots/metadata-field-overrides/pinned-fields.png)
 
 ### Documentation
 
@@ -230,11 +191,10 @@ The documentation and screenshots are available at [gameyfin.org](https://gameyf
 
 These features are also available as standalone branches, each with its own README and screenshots:
 
-* [Store links and version tracking](https://github.com/Shade1982/gameyfin/blob/feature/version-management/README.md) (`feature/version-management`)
-* [Editions, versions, and included DLC](https://github.com/Shade1982/gameyfin/blob/feature/editions-dlc/README.md) (`feature/editions-dlc`)
 * [Server announcements](https://github.com/Shade1982/gameyfin/blob/feature/announcements/README.md) (`feature/announcements`)
 * [Improved metadata search](https://github.com/Shade1982/gameyfin/blob/feature/improved-metadata-search/README.md) (`feature/improved-metadata-search`)
 * [Inspect metadata sources](https://github.com/Shade1982/gameyfin/blob/feature/inspect-metadata-sources/README.md) (`feature/inspect-metadata-sources`)
+* [Pin metadata fields to a source](https://github.com/Shade1982/gameyfin/blob/feature/metadata-field-overrides/README.md) (`feature/metadata-field-overrides`)
 
 ### Contribute to Gameyfin
 

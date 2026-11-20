@@ -1,5 +1,7 @@
 package org.gameyfin.app.games.dto
 
+import org.gameyfin.app.core.plugins.dto.ExternalProviderIdDto
+
 class MetadataSourceInspectionDto(
     val sources: List<MetadataSourceDataDto>,
     /** Field name -> key of the source that wins the field when merged */
@@ -26,4 +28,11 @@ class MetadataSourceStatsDto(
     val pluginId: String,
     val field: String,
     val count: Long
+)
+
+
+class GameMetadataLinksDto(
+    val originalIds: Map<String, ExternalProviderIdDto>,
+    val supplementIds: Map<String, ExternalProviderIdDto>,
+    val fieldOverrides: Map<String, String>
 )
