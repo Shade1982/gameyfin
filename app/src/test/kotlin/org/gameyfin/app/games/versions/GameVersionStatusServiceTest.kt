@@ -29,12 +29,13 @@ class GameVersionStatusServiceTest {
         linkRepository,
         versionRepository,
         stateRepository,
-        ObjectMapper()
+        ObjectMapper(),
+        registryOf(activeStore(STEAM_INFO), activeStore(GOG_INFO), activeStore(EPIC_INFO))
     )
 
     @Test
     fun `status compares latest version only within installed branch`() {
-        val link = GameStoreLink(1, 10, GameStore.STEAM, "123", tracked = true)
+        val link = GameStoreLink(1, 10, "steam", "123", tracked = true)
         val installed = StoreVersion(11, 1, "100", "", "Public build 100", Instant.parse("2024-01-01T00:00:00Z"))
         val publicLatest = StoreVersion(12, 1, "200", "", "Public build 200", Instant.parse("2024-02-01T00:00:00Z"))
         val otherBranch = StoreVersion(13, 1, "300", "beta", "Beta build 300", Instant.parse("2024-03-01T00:00:00Z"))
@@ -50,7 +51,7 @@ class GameVersionStatusServiceTest {
 
     @Test
     fun `an old build on a side branch reports the newer main branch release`() {
-        val link = GameStoreLink(1, 10, GameStore.GOG, "123", tracked = true)
+        val link = GameStoreLink(1, 10, "gog", "123", tracked = true)
         val classic = StoreVersion(11, 1, "1", "Classic", "1.32", Instant.parse("2018-11-06T00:00:00Z"))
         val main = StoreVersion(12, 1, "2", "", "5.01", Instant.parse("2026-10-07T00:00:00Z"))
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
@@ -65,7 +66,7 @@ class GameVersionStatusServiceTest {
 
     @Test
     fun `a side branch that is newer than the main branch stays up to date`() {
-        val link = GameStoreLink(1, 10, GameStore.STEAM, "123", tracked = true)
+        val link = GameStoreLink(1, 10, "steam", "123", tracked = true)
         val beta = StoreVersion(11, 1, "300", "beta", "Beta build 300", Instant.parse("2024-03-01T00:00:00Z"))
         val main = StoreVersion(12, 1, "200", "", "Public build 200", Instant.parse("2024-02-01T00:00:00Z"))
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
@@ -80,7 +81,7 @@ class GameVersionStatusServiceTest {
 
     @Test
     fun `status leaves update unknown when installed build is not cached`() {
-        val link = GameStoreLink(1, 10, GameStore.GOG, "123", tracked = true)
+        val link = GameStoreLink(1, 10, "gog", "123", tracked = true)
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
         every { versionRepository.findAllByLinkId(1) } returns listOf(
             StoreVersion(12, 1, "new", "", "2.0", Instant.parse("2024-02-01T00:00:00Z"))
@@ -105,7 +106,7 @@ class GameVersionStatusServiceTest {
             }
             """.trimIndent()
         )
-        val link = GameStoreLink(1, 10, GameStore.STEAM, "123")
+        val link = GameStoreLink(1, 10, "steam", "123")
         val version = StoreVersion(11, 1, "456", "", "Public build 456")
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { stateRepository.findById(1) } returns Optional.empty()
@@ -126,7 +127,7 @@ class GameVersionStatusServiceTest {
     fun `detects GOG version from product info build ID`(@TempDir tempDir: Path) {
         val gameDir = Files.createDirectories(tempDir.resolve("GOG Games/Test"))
         Files.writeString(gameDir.resolve("goggame-987.info"), """{"buildId":"gog-build-5"}""")
-        val link = GameStoreLink(1, 10, GameStore.GOG, "987")
+        val link = GameStoreLink(1, 10, "gog", "987")
         val version = StoreVersion(11, 1, "gog-build-5", "", "1.5")
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { stateRepository.findById(1) } returns Optional.empty()
@@ -146,7 +147,7 @@ class GameVersionStatusServiceTest {
     fun `detects GOG version from offline installer file name`(@TempDir tempDir: Path) {
         val gameDir = Files.createDirectories(tempDir.resolve("GOG Games/Drive Rally"))
         Files.createFile(gameDir.resolve("setup_drive_rally_1.5.1_(64bit)_(93251).exe"))
-        val link = GameStoreLink(1, 10, GameStore.GOG, "987")
+        val link = GameStoreLink(1, 10, "gog", "987")
         val versions = listOf(StoreVersion(11, 1, "59781019998704278", "", "1.4.8.0"), StoreVersion(12, 1, "59972322423858091", "", "1.5.1"))
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { stateRepository.findById(1) } returns Optional.empty()
@@ -166,7 +167,7 @@ class GameVersionStatusServiceTest {
     fun `preview detects the installed version without saving it`(@TempDir tempDir: Path) {
         val gameDir = Files.createDirectories(tempDir.resolve("GOG Games/Test"))
         Files.writeString(gameDir.resolve("goggame-987.info"), """{"buildId":"gog-build-5"}""")
-        val link = GameStoreLink(1, 10, GameStore.GOG, "987")
+        val link = GameStoreLink(1, 10, "gog", "987")
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { gameRepository.findById(10) } returns Optional.of(
             Game(library = mockk<Library>(), metadata = GameMetadata(path = gameDir.toString()))
@@ -182,7 +183,7 @@ class GameVersionStatusServiceTest {
 
     @Test
     fun `installed version can be stored as detected instead of manual`() {
-        val link = GameStoreLink(1, 10, GameStore.GOG, "987")
+        val link = GameStoreLink(1, 10, "gog", "987")
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
         every { versionRepository.findByIdAndLinkId(11, 1) } returns StoreVersion(11, 1, "b", "", "1.5")
@@ -197,7 +198,7 @@ class GameVersionStatusServiceTest {
 
     @Test
     fun `manual installed version is preserved during detection`() {
-        val link = GameStoreLink(1, 10, GameStore.STEAM, "123")
+        val link = GameStoreLink(1, 10, "steam", "123")
         val manualState = GameVersionState(1, 11, LinkSource.MANUAL)
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { stateRepository.findById(1) } returns Optional.of(manualState)
@@ -216,7 +217,7 @@ class GameVersionStatusServiceTest {
         val gameDir = Files.createDirectories(tempDir.resolve("Epic Games/Test"))
         val egstore = Files.createDirectories(gameDir.resolve(".egstore"))
         Files.write(egstore.resolve("ABCDEF.manifest"), epicManifest("38294-x64"))
-        val link = GameStoreLink(1, 10, GameStore.EPIC, "2ae6edb2223c4f8c97e9839b5b6497bb")
+        val link = GameStoreLink(1, 10, "epic", "2ae6edb2223c4f8c97e9839b5b6497bb")
         val version = StoreVersion(11, 1, "38294-x64", "", "38294-x64 (2025-07-23)")
         every { linkRepository.findById(1) } returns Optional.of(link)
         every { stateRepository.findById(1) } returns Optional.empty()

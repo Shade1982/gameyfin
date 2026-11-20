@@ -3,7 +3,8 @@ import {Button, Chip, Input, Label, ListBox, Select, Spinner, TextField} from "@
 import {GameStoreLinkEndpoint} from "Frontend/generated/endpoints";
 import InfoHint from "Frontend/components/general/versions/InfoHint";
 import IncludedDlcPicker from "Frontend/components/general/versions/IncludedDlcPicker";
-import StoreSearchPicker, {STORE_NAMES} from "Frontend/components/general/versions/StoreSearchPicker";
+import VersionOptionLabel, {versionMarkers} from "Frontend/components/general/versions/VersionOptionLabel";
+import StoreSearchPicker from "Frontend/components/general/versions/StoreSearchPicker";
 import {GameVersionEditorState} from "Frontend/components/general/versions/useGameVersionEditor";
 
 const EDITION_PATTERNS = [
@@ -33,7 +34,7 @@ function SectionHeading({title, hint}: { title: string; hint: string }) {
 
 /** Edition names from the store database plus a keyword guess from the store title, as one-click suggestions. */
 function EditionSuggestions({store, storeAppId, title, current, onPick}: {
-    store: Parameters<typeof GameStoreLinkEndpoint.getEditionSuggestions>[0];
+    store: string;
     storeAppId: string;
     title?: string;
     current: string;
@@ -73,7 +74,7 @@ interface GameVersionEditorProps {
 /** Edits are staged in [editor] and written when the metadata dialog is saved. */
 export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersionEditorProps) {
     const [adding, setAdding] = useState(false);
-    const {links, loading, pendingKey} = editor;
+    const {links, stores, loading, pendingKey} = editor;
     const linkedKeys = new Set(links.map((link) => `${link.store}:${link.storeAppId}`));
 
     if (loading) return <div className="flex justify-center py-3"><Spinner size="sm"/></div>;
@@ -90,15 +91,32 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                 return (
                     <div key={link.key} className="flex flex-col gap-2 rounded-xl bg-surface-secondary p-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">{STORE_NAMES[link.store]}</span>
+                            <span className="font-medium">{link.storeName}</span>
                             <span className="text-sm text-muted">
                                 {link.title ? `${link.title} · ` : ""}ID {link.storeAppId}
                             </span>
                             {isNew && <Chip size="sm" variant="soft">New</Chip>}
+                            {!link.storeAvailable && <Chip size="sm" variant="soft">Plugin disabled</Chip>}
                             {!isNew && links.length > 1 && link.tracked &&
                                 <Chip size="sm" variant="soft">Primary</Chip>}
                         </div>
 
+                        {!link.storeAvailable && (
+                            <>
+                                <p className="text-sm text-muted">
+                                    The plugin for {link.storeName} is not enabled. Enable it to edit this store or to
+                                    update its versions. The saved data is kept and shown as is.
+                                </p>
+                                <div>
+                                    <Button size="sm" variant="ghost" isDisabled={busy}
+                                            onPress={() => editor.removeLink(link.key)}>
+                                        Remove
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+
+                        {link.storeAvailable && (<>
                         <SectionHeading
                             title="Edition"
                             hint="Leave empty for the standard edition. Fill it in only when this product is an edition sold as its own base product, e.g. Game of the Year Edition."/>
@@ -126,7 +144,7 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                             </div>
                         ) : (
                             <Select
-                                aria-label={`Library ${STORE_NAMES[link.store]} version`}
+                                aria-label={`Library ${link.storeName} version`}
                                 value={link.installedVersionId?.toString() ?? "none"}
                                 isDisabled={busy || link.versions.length === 0}
                                 onChange={(value) => {
@@ -144,13 +162,16 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                                             Library version: not set
                                             <ListBox.ItemIndicator/>
                                         </ListBox.Item>
-                                        {link.versions.map((version) => (
-                                            <ListBox.Item key={version.id} id={version.id.toString()}
-                                                          textValue={version.label}>
-                                                {version.label}{version.branch ? ` (${version.branch})` : ""}
-                                                <ListBox.ItemIndicator/>
-                                            </ListBox.Item>
-                                        ))}
+                                        {link.versions.map((version, _, all) => {
+                                            const markers = versionMarkers(all);
+                                            return (
+                                                <ListBox.Item key={version.id} id={version.id.toString()}
+                                                              textValue={version.label}>
+                                                    <VersionOptionLabel version={version} markers={markers}/>
+                                                    <ListBox.ItemIndicator/>
+                                                </ListBox.Item>
+                                            );
+                                        })}
                                     </ListBox>
                                 </Select.Popover>
                             </Select>
@@ -200,12 +221,14 @@ export default function GameVersionEditor({gameId, gameTitle, editor}: GameVersi
                             hint="Everything that is not a separate base product: edition upgrades, DLC and bonus material such as soundtracks. Pick what the library files include."/>
                         <IncludedDlcPicker gameId={gameId} link={link}
                                            onChange={(dlc) => editor.setDlc(link.key, dlc)}/>
+                        </>)}
                     </div>
                 );
             })}
 
             {adding ? (
                 <StoreSearchPicker
+                    stores={stores}
                     initialQuery={gameTitle}
                     linkedKeys={linkedKeys}
                     onPick={(store, storeAppId, title) => {

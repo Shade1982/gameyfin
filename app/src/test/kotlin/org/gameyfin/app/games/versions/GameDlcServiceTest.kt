@@ -1,5 +1,7 @@
 package org.gameyfin.app.games.versions
 
+import org.gameyfin.pluginapi.gamestore.GameStoreDlc
+import org.gameyfin.pluginapi.gamestore.GameStoreProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -20,20 +22,19 @@ class GameDlcServiceTest {
     private val gameRepository = mockk<GameRepository>()
     private val linkRepository = mockk<GameStoreLinkRepository>()
     private val dlcRepository = mockk<GameIncludedDlcRepository>(relaxed = true)
-    private val provider = mockk<GameDlcProvider>()
+    private val provider = mockk<GameStoreProvider>()
     private val service: GameDlcService
 
     init {
-        every { provider.store } returns GameStore.GOG
-        service = GameDlcService(gameRepository, linkRepository, dlcRepository, listOf(provider))
+        service = GameDlcService(gameRepository, linkRepository, dlcRepository, registryOf(activeStore(GOG_INFO, provider)))
     }
 
     @Test
     fun `candidates are cached between calls`() {
-        every { provider.fetchDlc("100") } returns listOf(StoreDlcInfo("1", "Pack"))
+        every { provider.fetchDlc("100") } returns listOf(GameStoreDlc("1", "Pack"))
 
-        service.getCandidates(GameStore.GOG, "100")
-        val result = service.getCandidates(GameStore.GOG, "https://www.gogdb.org/product/100")
+        service.getCandidates("gog", "100")
+        val result = service.getCandidates("gog", "https://www.gogdb.org/product/100")
 
         assertEquals(listOf(StoreDlcDto("1", "Pack")), result)
         verify(exactly = 1) { provider.fetchDlc("100") }
@@ -49,18 +50,18 @@ class GameDlcServiceTest {
             Game(library = mockk<Library>(), title = "Cyberpunk 2077", metadata = GameMetadata(path = gameDir.toString()))
         )
         every { provider.fetchDlc("100") } returns listOf(
-            StoreDlcInfo("1", "Cyberpunk 2077: Phantom Liberty"),
-            StoreDlcInfo("2", "Cyberpunk 2077 REDmod")
+            GameStoreDlc("1", "Cyberpunk 2077: Phantom Liberty"),
+            GameStoreDlc("2", "Cyberpunk 2077 REDmod")
         )
 
-        val result = service.detect(10, GameStore.GOG, "100")
+        val result = service.detect(10, "gog", "100")
 
         assertEquals(listOf(StoreDlcDto("1", "Cyberpunk 2077: Phantom Liberty")), result)
     }
 
     @Test
     fun `setIncluded replaces the selection and keeps the source`() {
-        val link = GameStoreLink(5, 10, GameStore.GOG, "100")
+        val link = GameStoreLink(5, 10, "gog", "100")
         every { linkRepository.findById(5) } returns Optional.of(link)
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
         val old = GameIncludedDlc(1, 5, "1", "Old", LinkSource.MANUAL)
@@ -81,7 +82,7 @@ class GameDlcServiceTest {
 
     @Test
     fun `setIncluded rejects invalid IDs and titles`() {
-        val link = GameStoreLink(5, 10, GameStore.GOG, "100")
+        val link = GameStoreLink(5, 10, "gog", "100")
         every { linkRepository.findById(5) } returns Optional.of(link)
 
         assertFailsWith<IllegalArgumentException> { service.setIncluded(5, listOf(IncludedDlcDto("abc", "Pack", false))) }
@@ -90,7 +91,7 @@ class GameDlcServiceTest {
 
     @Test
     fun `custom DLC that the store does not list is stored, malformed custom IDs are rejected`() {
-        val link = GameStoreLink(5, 10, GameStore.GOG, "100")
+        val link = GameStoreLink(5, 10, "gog", "100")
         every { linkRepository.findById(5) } returns Optional.of(link)
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
         every { dlcRepository.findAllByLinkId(5) } returns emptyList()
@@ -109,7 +110,7 @@ class GameDlcServiceTest {
 
     @Test
     fun `the kind of an extra is stored and updated`() {
-        val link = GameStoreLink(5, 10, GameStore.GOG, "100")
+        val link = GameStoreLink(5, 10, "gog", "100")
         every { linkRepository.findById(5) } returns Optional.of(link)
         every { linkRepository.findAllByGameId(10) } returns listOf(link)
         val existing = GameIncludedDlc(1, 5, "1", "Pack", LinkSource.MANUAL, DlcKind.DLC)

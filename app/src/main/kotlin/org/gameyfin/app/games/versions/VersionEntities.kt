@@ -27,9 +27,9 @@ class GameStoreLink(
     @Column(name = "game_id", nullable = false)
     val gameId: Long,
 
-    @Enumerated(EnumType.STRING)
+    /** ID of the store, as declared by the game store plugin */
     @Column(nullable = false)
-    val store: GameStore,
+    val store: String,
 
     @Column(name = "store_app_id", nullable = false)
     val storeAppId: String,
@@ -92,7 +92,7 @@ class GameVersionState(
 interface GameStoreLinkRepository : JpaRepository<GameStoreLink, Long> {
     fun findAllByGameId(gameId: Long): List<GameStoreLink>
 
-    fun findByGameIdAndStoreAndStoreAppId(gameId: Long, store: GameStore, storeAppId: String): GameStoreLink?
+    fun findByGameIdAndStoreAndStoreAppId(gameId: Long, store: String, storeAppId: String): GameStoreLink?
 }
 
 interface StoreVersionRepository : JpaRepository<StoreVersion, Long> {

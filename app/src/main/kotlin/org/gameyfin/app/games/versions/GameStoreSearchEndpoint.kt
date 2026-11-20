@@ -8,5 +8,5 @@ import org.gameyfin.app.core.Role
 @RolesAllowed(Role.Names.ADMIN)
 class GameStoreSearchEndpoint(private val searchService: GameStoreSearchService) {
 
-    fun search(store: GameStore, query: String): List<StoreSearchResultDto> = searchService.search(store, query)
+    fun search(store: String, query: String): List<StoreSearchResultDto> = searchService.search(store, query)
 }

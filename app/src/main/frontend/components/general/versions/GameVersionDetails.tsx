@@ -13,12 +13,6 @@ type VersionStatus = Awaited<ReturnType<typeof GameVersionEndpoint.getStatus>>[n
 
 const DLC_PREVIEW_COUNT = 3;
 
-const STORE_NAMES: Record<string, string> = {
-    STEAM: "Steam",
-    GOG: "GOG",
-    EPIC: "Epic Games",
-};
-
 const EXTRA_ROWS = [
     {kind: DlcKind.EDITION_UPGRADE, label: "Edition upgrades"},
     {kind: DlcKind.DLC, label: "DLC"},
@@ -67,7 +61,7 @@ export default function GameVersionDetails({gameId, refreshKey}: GameVersionDeta
                 const latest = status.versions.find((version) => version.id === status.latestVersionId);
                 return (
                     <tr key={status.linkId}>
-                        <td className="text-muted w-0 min-w-32">{STORE_NAMES[status.store] ?? status.store} version</td>
+                        <td className="text-muted w-0 min-w-32">{status.storeName} version</td>
                         <td>
                             <div className="flex flex-wrap items-center gap-2">
                                 <span>{installed?.label ?? "Unknown"}</span>

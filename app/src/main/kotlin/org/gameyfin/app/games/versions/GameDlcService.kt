@@ -1,6 +1,7 @@
 package org.gameyfin.app.games.versions
 
 import org.gameyfin.app.games.repositories.GameRepository
+import org.gameyfin.pluginapi.gamestore.GameStoreDlcKind
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -9,11 +10,14 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
+/** An extra (edition upgrade, DLC or bonus material) of a store product. The ID is the store's own identifier. */
+data class StoreDlcInfo(val dlcId: String, val title: String, val kind: DlcKind = DlcKind.DLC)
+
 data class StoreDlcDto(val dlcId: String, val title: String, val kind: DlcKind = DlcKind.DLC)
 
 data class IncludedDlcDto(val dlcId: String, val title: String, val detected: Boolean, val kind: DlcKind = DlcKind.DLC)
 
-data class GameIncludedDlcDto(val linkId: Long, val store: GameStore, val dlc: List<IncludedDlcDto>)
+data class GameIncludedDlcDto(val linkId: Long, val store: String, val storeName: String, val storeAvailable: Boolean, val dlc: List<IncludedDlcDto>)
 
 /**
  * Which DLC the installer(s) provided for a game include, per store link.
@@ -24,10 +28,9 @@ class GameDlcService(
     private val gameRepository: GameRepository,
     private val linkRepository: GameStoreLinkRepository,
     private val dlcRepository: GameIncludedDlcRepository,
-    providers: List<GameDlcProvider>
+    private val storeRegistry: GameStoreRegistry
 ) {
-    private val providers = providers.associateBy { it.store }
-    private val cache = ConcurrentHashMap<Pair<GameStore, String>, CachedCandidates>()
+    private val cache = ConcurrentHashMap<Pair<String, String>, CachedCandidates>()
 
     private class CachedCandidates(val fetchedAt: Long, val dlc: List<StoreDlcInfo>)
 
@@ -35,11 +38,14 @@ class GameDlcService(
     fun getIncluded(gameId: Long): List<GameIncludedDlcDto> {
         val links = linkRepository.findAllByGameId(gameId)
         if (links.isEmpty()) return emptyList()
+        val activeStores = storeRegistry.activeStores().associateBy { it.id }
         val byLink = dlcRepository.findAllByLinkIdIn(links.map { it.id!! }).groupBy { it.linkId }
         return links.map { link ->
             GameIncludedDlcDto(
                 linkId = link.id!!,
                 store = link.store,
+                storeName = activeStores[link.store]?.info?.displayName ?: link.store,
+                storeAvailable = link.store in activeStores,
                 dlc = byLink[link.id].orEmpty()
                     .sortedBy { it.title.lowercase() }
                     .map { IncludedDlcDto(it.dlcId, it.title, it.source == LinkSource.AUTO, it.kind) }
@@ -48,11 +54,11 @@ class GameDlcService(
     }
 
     /** The DLC the store offers for a product, which can be picked as included. */
-    fun getCandidates(store: GameStore, storeAppId: String): List<StoreDlcDto> =
+    fun getCandidates(store: String, storeAppId: String): List<StoreDlcDto> =
         candidates(store, storeAppId).map { StoreDlcDto(it.dlcId, it.title, it.kind) }
 
     /** Suggests the DLC that is present in the folder of the game, without saving anything. */
-    fun detect(gameId: Long, store: GameStore, storeAppId: String): List<StoreDlcDto> {
+    fun detect(gameId: Long, store: String, storeAppId: String): List<StoreDlcDto> {
         val game = gameRepository.findByIdOrNull(gameId)
             ?: throw NoSuchElementException("Game $gameId not found")
         val candidates = candidates(store, storeAppId)
@@ -67,12 +73,13 @@ class GameDlcService(
     fun setIncluded(linkId: Long, dlc: List<IncludedDlcDto>): GameIncludedDlcDto {
         val link = linkRepository.findByIdOrNull(linkId)
             ?: throw NoSuchElementException("Store link $linkId not found")
+        val activeStore = storeRegistry.require(link.store)
         require(dlc.size <= MAX_INCLUDED) { "Too many DLC entries (maximum $MAX_INCLUDED)" }
 
         val wanted = dlc.distinctBy { it.dlcId }
         wanted.forEach {
-            require(link.store.isValidId(it.dlcId) || CUSTOM_DLC_ID.matches(it.dlcId)) {
-                "Invalid ${link.store.name} DLC ID: '${it.dlcId}'"
+            require(CUSTOM_DLC_ID.matches(it.dlcId) || activeStore.isValidProductId(it.dlcId)) {
+                "Invalid ${activeStore.info.displayName} DLC ID: '${it.dlcId}'"
             }
             require(it.title.isNotBlank() && it.title.length <= MAX_TITLE) { "Invalid DLC title for ${it.dlcId}" }
         }
@@ -94,14 +101,20 @@ class GameDlcService(
         return getIncluded(link.gameId).first { it.linkId == linkId }
     }
 
-    private fun candidates(store: GameStore, storeAppId: String): List<StoreDlcInfo> {
-        val id = store.parseId(storeAppId)
-            ?: throw IllegalArgumentException("Invalid ${store.name} product ID: '$storeAppId'")
-        val provider = providers[store] ?: throw IllegalStateException("No DLC provider for ${store.name}")
+    private fun candidates(store: String, storeAppId: String): List<StoreDlcInfo> {
+        val (activeStore, id) = storeRegistry.parseProductId(store, storeAppId)
         val key = store to id
         val now = System.nanoTime()
         cache[key]?.takeIf { now - it.fetchedAt < CACHE_TTL.toNanos() }?.let { return it.dlc }
-        return provider.fetchDlc(id).also { cache[key] = CachedCandidates(now, it) }
+        return activeStore.provider.fetchDlc(id)
+            .map { StoreDlcInfo(it.id, it.title, it.kind.toDlcKind()) }
+            .also { cache[key] = CachedCandidates(now, it) }
+    }
+
+    private fun GameStoreDlcKind.toDlcKind() = when (this) {
+        GameStoreDlcKind.EDITION_UPGRADE -> DlcKind.EDITION_UPGRADE
+        GameStoreDlcKind.DLC -> DlcKind.DLC
+        GameStoreDlcKind.BONUS -> DlcKind.BONUS
     }
 
     /** Names of files and folders below the game path, which is also where DLC installers are often placed. */

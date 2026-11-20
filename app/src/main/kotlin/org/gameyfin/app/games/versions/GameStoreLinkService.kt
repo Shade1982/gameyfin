@@ -5,29 +5,29 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 /**
- * Manages which store products a game is linked to. Links are only created and removed by admins,
- * metadata plugins are never consulted, so the result does not depend on which plugins are enabled.
+ * Manages which store products a game is linked to. Links are only created and removed by admins.
+ * New links require an active game store plugin for the store; existing links are kept when it is disabled.
  */
 @Service
 class GameStoreLinkService(
     private val linkRepository: GameStoreLinkRepository,
-    private val gameRepository: GameRepository
+    private val gameRepository: GameRepository,
+    private val storeRegistry: GameStoreRegistry
 ) {
     companion object {
         const val MAX_EDITION_LENGTH = 100
         val STANDARD_EDITION = Regex("(standard|base|default|regular)( (edition|game|version))?", RegexOption.IGNORE_CASE)
 
         // Prefer stores that provide real version names over stores that only provide build IDs
-        private val TRACKING_PREFERENCE = listOf(GameStore.GOG, GameStore.EPIC, GameStore.STEAM)
+        private val TRACKING_PREFERENCE = listOf("gog", "epic", "steam")
     }
 
     fun getLinks(gameId: Long): List<GameStoreLink> = linkRepository.findAllByGameId(gameId)
 
     /** [storeAppId] may be a plain product ID or the URL of a product page. */
     @Transactional
-    fun addLink(gameId: Long, store: GameStore, storeAppId: String): GameStoreLink {
-        val id = store.parseId(storeAppId)
-            ?: throw IllegalArgumentException("Invalid ${store.name} product ID or URL: '$storeAppId'")
+    fun addLink(gameId: Long, store: String, storeAppId: String): GameStoreLink {
+        val id = storeRegistry.parseProductId(store, storeAppId).second
         if (!gameRepository.existsById(gameId)) throw NoSuchElementException("Game $gameId not found")
 
         val link = linkRepository.findByGameIdAndStoreAndStoreAppId(gameId, store, id)
