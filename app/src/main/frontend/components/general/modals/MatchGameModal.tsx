@@ -1,4 +1,6 @@
-import {Button, Input, Modal, Spinner, Table, Tooltip} from "@heroui/react";
+import GameSearchResults from "./GameSearchResults";
+import ResponsiveDialog from "Frontend/components/layout/ResponsiveDialog";
+import {Button, Input, Modal, Spinner, Tooltip} from "@heroui/react";
 import React, {useEffect, useState} from "react";
 import {
     ArrowRightIcon,
@@ -11,9 +13,7 @@ import {
 import InspectMetadataSourcesModal from "./InspectMetadataSourcesModal";
 import {GameEndpoint} from "Frontend/generated/endpoints";
 import GameSearchResultDto from "Frontend/generated/org/gameyfin/app/games/dto/GameSearchResultDto";
-import PluginIcon from "../plugin/PluginIcon";
 import {useSnapshot} from "valtio/react";
-import {pluginState} from "Frontend/state/PluginState";
 import {libraryState} from "Frontend/state/LibraryState";
 import ExternalProviderIdDto from "Frontend/generated/org/gameyfin/app/core/plugins/dto/ExternalProviderIdDto";
 import LibraryAdminDto from "Frontend/generated/org/gameyfin/app/libraries/dto/LibraryAdminDto";
@@ -49,7 +49,6 @@ export default function MatchGameModal({
         label: string
     } | null>(null);
 
-    const state = useSnapshot(pluginState).state;
     const librariesState = useSnapshot(libraryState).state;
 
     useEffect(() => {
@@ -111,15 +110,15 @@ export default function MatchGameModal({
         <Modal>
             <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}
                             isDismissable={!isSearching && !isMatching}>
-                <Modal.Container size="lg" className="max-w-5xl">
+                <ResponsiveDialog size="lg" className="max-w-5xl">
                     <Modal.Dialog>
                         {({close}) => (
                             <Modal.Body className="my-4">
                                 <div className="flex flex-col items-center">
-                                    <pre>{path}</pre>
+                                    <pre className="max-w-full whitespace-pre-wrap wrap-anywhere">{path}</pre>
                                 </div>
                                 <div className="flex flex-row gap-2 mb-4">
-                                    <Input value={searchTerm}
+                                    <Input aria-label="Search games" value={searchTerm}
                                            onChange={(e) => setSearchTerm(e.target.value)}
                                            onKeyDown={async (e) => {
                                                if (e.key === "Enter") {
@@ -129,7 +128,8 @@ export default function MatchGameModal({
                                            }}
                                            className="flex-1"
                                     />
-                                    <Button isIconOnly onPress={search} variant="primary" isPending={isSearching}>
+                                    <Button isIconOnly aria-label="Search games" onPress={search} variant="primary"
+                                            isPending={isSearching}>
                                         {isSearching ? <Spinner size="sm" color="current"/> : <MagnifyingGlassIcon/>}
                                     </Button>
                                 </div>
@@ -164,124 +164,74 @@ export default function MatchGameModal({
                                 )}
 
                                 <div>
-                                    <Table variant="secondary" className="h-80">
-                                        <Table.ScrollContainer className="h-80">
-                                            <Table.Content>
-                                                <Table.Header className="sticky top-0 z-10 bg-background">
-                                                    <Table.Column id="title" isRowHeader>Title & Release</Table.Column>
-                                                    <Table.Column id="developers">Developer(s)</Table.Column>
-                                                    <Table.Column id="publishers">Publisher(s)</Table.Column>
-                                                    <Table.Column id="sources">Sources</Table.Column>
-                                                    <Table.Column id="actions"> </Table.Column>
-                                                </Table.Header>
-                                                <Table.Body renderEmptyState={() => <p
-                                                    className="text-center text-muted p-4">Your filter did not match any
-                                                    games.</p>}
-                                                            items={searchResults}
-                                                            dependencies={[combineBase, primary, isMatching]}>
-                                                    {(item) => (
-                                                        <Table.Row key={item.id}>
-                                                            <Table.Cell>
-                                                                {item.title} ({item.release ? new Date(item.release).getFullYear() : "unknown"})
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <div className="flex flex-col">
-                                                                    {item.developers ? item.developers.map(
-                                                                        developer => <p>{developer}</p>
-                                                                    ) : "unknown"}
-                                                                </div>
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <div className="flex flex-col">
-                                                                    {item.publishers ? item.publishers.map(
-                                                                        publisher => <p>{publisher}</p>
-                                                                    ) : "unknown"}
-                                                                </div>
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <div className="flex flex-row gap-2">
-                                                                    {Object.values(item.originalIds).map(
-                                                                        originalId => <PluginIcon
-                                                                            plugin={state[originalId.pluginId]}/>
-                                                                    )}
-                                                                </div>
-                                                            </Table.Cell>
-                                                            <Table.Cell>
-                                                                <div className="flex flex-row gap-1">
-                                                                <Tooltip>
-                                                                    <Tooltip.Trigger>
-                                                                        <Button isIconOnly size="sm"
-                                                                                variant="tertiary"
-                                                                                isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
-                                                                                onPress={() => inspect(item)}>
-                                                                            <ListMagnifyingGlassIcon/>
-                                                                        </Button>
-                                                                    </Tooltip.Trigger>
-                                                                    <Tooltip.Content placement="bottom">Inspect
-                                                                        metadata sources</Tooltip.Content>
-                                                                </Tooltip>
-                                                                {combineBase === null && (
-                                                                    <Tooltip>
-                                                                        <Tooltip.Trigger>
-                                                                            <Button isIconOnly size="sm"
-                                                                                    variant="tertiary"
-                                                                                    isDisabled={isMatching !== null}
-                                                                                    onPress={() => setCombineBase(item)}>
-                                                                                <LinkIcon/>
-                                                                            </Button>
-                                                                        </Tooltip.Trigger>
-                                                                        <Tooltip.Content placement="bottom">Combine
-                                                                            with another result</Tooltip.Content>
-                                                                    </Tooltip>
-                                                                )}
-                                                                {primary === null && (
-                                                                    <Tooltip>
-                                                                        <Tooltip.Trigger>
-                                                                            <Button isIconOnly size="sm"
-                                                                                    variant="tertiary"
-                                                                                    isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
-                                                                                    onPress={() => addBaseGame(item)}>
-                                                                                <PlusCircleIcon/>
-                                                                            </Button>
-                                                                        </Tooltip.Trigger>
-                                                                        <Tooltip.Content placement="bottom">Select
-                                                                            this, then add a base game for missing
-                                                                            metadata</Tooltip.Content>
-                                                                    </Tooltip>
-                                                                )}
-                                                                <Tooltip>
-                                                                    <Tooltip.Trigger>
-                                                                        <Button isIconOnly size="sm"
-                                                                                isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
-                                                                                isPending={isMatching === item.id}
-                                                                                onPress={async () => {
-                                                                                    setIsMatching(item.id);
-                                                                                    await matchGame(item);
-                                                                                    setIsMatching(null);
-                                                                                    close();
-                                                                                }}>
-                                                                            {isMatching === item.id ?
-                                                                                <Spinner size="sm" color="current"/> :
-                                                                                <ArrowRightIcon/>}
-                                                                        </Button>
-                                                                    </Tooltip.Trigger>
-                                                                    <Tooltip.Content placement="bottom">
-                                                                        {combineBase ? "Combine with this result" : primary ? "Use as base game" : "Pick this result"}
-                                                                    </Tooltip.Content>
-                                                                </Tooltip>
-                                                                </div>
-                                                            </Table.Cell>
-                                                        </Table.Row>
-                                                    )}
-                                                </Table.Body>
-                                            </Table.Content>
-                                        </Table.ScrollContainer>
-                                    </Table>
+                                    <GameSearchResults results={searchResults} actions={item => (
+                                        <div className="flex flex-row gap-1">
+                                            <Tooltip>
+                                                <Tooltip.Trigger>
+                                                    <Button isIconOnly size="sm" variant="tertiary"
+                                                            aria-label="Inspect metadata sources"
+                                                            isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
+                                                            onPress={() => inspect(item)}>
+                                                        <ListMagnifyingGlassIcon/>
+                                                    </Button>
+                                                </Tooltip.Trigger>
+                                                <Tooltip.Content placement="bottom">Inspect metadata sources</Tooltip.Content>
+                                            </Tooltip>
+                                            {combineBase === null && (
+                                                <Tooltip>
+                                                    <Tooltip.Trigger>
+                                                        <Button isIconOnly size="sm" variant="tertiary"
+                                                                aria-label="Combine with another result"
+                                                                isDisabled={isMatching !== null}
+                                                                onPress={() => setCombineBase(item)}>
+                                                            <LinkIcon/>
+                                                        </Button>
+                                                    </Tooltip.Trigger>
+                                                    <Tooltip.Content placement="bottom">Combine with another result</Tooltip.Content>
+                                                </Tooltip>
+                                            )}
+                                            {primary === null && (
+                                                <Tooltip>
+                                                    <Tooltip.Trigger>
+                                                        <Button isIconOnly size="sm" variant="tertiary"
+                                                                aria-label="Add base game"
+                                                                isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
+                                                                onPress={() => addBaseGame(item)}>
+                                                            <PlusCircleIcon/>
+                                                        </Button>
+                                                    </Tooltip.Trigger>
+                                                    <Tooltip.Content placement="bottom">
+                                                        Select this, then add a base game for missing metadata
+                                                    </Tooltip.Content>
+                                                </Tooltip>
+                                            )}
+                                            <Tooltip>
+                                                <Tooltip.Trigger>
+                                                    <Button isIconOnly size="sm"
+                                                            aria-label={combineBase ? "Combine with this result" : primary ? "Use as base game" : `Pick ${item.title}`}
+                                                            isDisabled={isMatching !== null || item.id === combineBase?.id || sharesProvider(item)}
+                                                            isPending={isMatching === item.id}
+                                                            onPress={async () => {
+                                                                setIsMatching(item.id);
+                                                                await matchGame(item);
+                                                                setIsMatching(null);
+                                                                close();
+                                                            }}>
+                                                        {isMatching === item.id ? <Spinner size="sm" color="current"/> :
+                                                            <ArrowRightIcon/>}
+                                                    </Button>
+                                                </Tooltip.Trigger>
+                                                <Tooltip.Content placement="bottom">
+                                                    {combineBase ? "Combine with this result" : primary ? "Use as base game" : "Pick this result"}
+                                                </Tooltip.Content>
+                                            </Tooltip>
+                                        </div>
+                                    )}/>
                                 </div>
                             </Modal.Body>
                         )}
                     </Modal.Dialog>
-                </Modal.Container>
+                </ResponsiveDialog>
             </Modal.Backdrop>
             {inspected && (
                 <InspectMetadataSourcesModal isOpen={true}

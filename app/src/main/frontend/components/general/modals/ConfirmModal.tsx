@@ -9,6 +9,7 @@ interface ConfirmModalProps {
     isPending?: boolean;
     onConfirm: () => void;
     confirmVariant?: "danger" | "primary";
+    footerStart?: React.ReactNode;
     children: React.ReactNode;
 }
 
@@ -20,6 +21,7 @@ export default function ConfirmModal({
                                          isPending,
                                          onConfirm,
                                          confirmVariant = "danger",
+                                         footerStart,
                                          children
                                      }: ConfirmModalProps) {
     return (
@@ -28,7 +30,7 @@ export default function ConfirmModal({
                             onOpenChange={(open) => !isPending && onOpenChange(open)}
                             variant="opaque"
                             isDismissable={!isPending}>
-                <Modal.Container size="lg">
+                <Modal.Container size="md" placement="center">
                     <Modal.Dialog>
                         {({close}) => (
                             <>
@@ -39,6 +41,7 @@ export default function ConfirmModal({
                                     {children}
                                 </Modal.Body>
                                 <Modal.Footer>
+                                    {footerStart && <div className="me-auto min-w-0">{footerStart}</div>}
                                     <Button variant="ghost" onPress={close} isDisabled={isPending}>
                                         Cancel
                                     </Button>
