@@ -1744,7 +1744,6 @@ databaseChangeLog:
       changes:
         - sql:
             sql: UPDATE GAME_STORE_LINK SET STORE = LOWER(STORE)
-
   - changeSet:
       id: 2.6.0-game-field-override
       author: grimsi
@@ -1801,4 +1800,7 @@ databaseChangeLog:
       relativeToChangelogFile: true
   - include:
       file: db.changelog-2.6.0.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: db.changelog-2.7.0.yaml
       relativeToChangelogFile: true

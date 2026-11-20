@@ -1,8 +1,10 @@
+import Popup from "Frontend/components/general/Popup";
 import React from "react";
 import {Button, Card, Chip, Spinner, Tooltip, useOverlayState} from "@heroui/react";
 import {ArrowCircleUpIcon, CheckIcon, DownloadSimpleIcon, StorefrontIcon, WarningIcon} from "@phosphor-icons/react";
 import {useSnapshot} from "valtio/react";
-import MarketplacePluginDto from "Frontend/generated/org/gameyfin/app/core/plugins/marketplace/dto/MarketplacePluginDto";
+import MarketplacePluginDto
+    from "Frontend/generated/org/gameyfin/app/core/plugins/marketplace/dto/MarketplacePluginDto";
 import MarketplacePluginStatus
     from "Frontend/generated/org/gameyfin/app/core/plugins/marketplace/dto/MarketplacePluginStatus";
 import {marketplaceState} from "Frontend/state/MarketplaceState";
@@ -17,10 +19,11 @@ export default function MarketplacePluginCard({plugin}: { plugin: MarketplacePlu
     const detailsModal = useOverlayState();
     const {install, isInstalling, confirmationModal} = useMarketplaceInstall(plugin);
     const isPending = (useSnapshot(marketplaceState).pending[plugin.id] ?? false) || isInstalling;
+    const hasUpdate = plugin.status === MarketplacePluginStatus.UPDATE_AVAILABLE;
 
     return (
         <>
-            <Card className="flex flex-col gap-3 p-4 h-full">
+            <Card className={`flex flex-col gap-3 p-4 h-full ${hasUpdate ? "border border-accent" : ""}`}>
                 <button type="button"
                         className="flex flex-col items-center gap-2 grow text-left cursor-pointer"
                         aria-label={`Show details for ${plugin.name}`}
@@ -28,9 +31,8 @@ export default function MarketplacePluginCard({plugin}: { plugin: MarketplacePlu
                     <div className="flex h-16 w-full items-center justify-center">
                         <MarketplacePluginLogo plugin={plugin} glow={true}/>
                     </div>
-                    <p className="flex flex-row items-center gap-1 font-semibold text-center">
+                    <p className="flex flex-wrap justify-center wrap-anywhere items-center gap-1 font-semibold text-center">
                         {plugin.name}
-                        <MarketplaceSourceBadge plugin={plugin}/>
                     </p>
                     {plugin.author && <p className="text-xs text-muted">by {plugin.author}</p>}
                     <p className="text-sm text-center line-clamp-3 w-full">
@@ -43,9 +45,15 @@ export default function MarketplacePluginCard({plugin}: { plugin: MarketplacePlu
                     </div>
                 </button>
 
+                {!plugin.officialMarketplace && <div className="flex justify-center">
+                    <MarketplaceSourceBadge plugin={plugin}/>
+                </div>}
+
                 <div className="flex flex-row items-center justify-between gap-2">
                     <div className="flex flex-col gap-1">
-                        <MarketplacePluginStatusChip plugin={plugin}/>
+                        {hasUpdate
+                            ? <span className="text-xs text-muted">Installed: v{plugin.installedVersion}</span>
+                            : <MarketplacePluginStatusChip plugin={plugin}/>}
                         {plugin.latestVersion &&
                             <span className="text-xs text-muted">Latest: v{plugin.latestVersion}</span>}
                     </div>
@@ -67,16 +75,16 @@ export function MarketplaceSourceBadge({plugin}: { plugin: MarketplacePluginDto 
     if (plugin.officialMarketplace) return null;
 
     return (
-        <Tooltip delay={0}>
-            <Tooltip.Trigger className="flex">
+        <Popup>
+            <Popup.Trigger className="flex">
                 <span className="inline-flex text-warning" aria-label="Third-party marketplace">
                     <StorefrontIcon size={18} weight="fill"/>
                 </span>
-            </Tooltip.Trigger>
-            <Tooltip.Content placement="bottom" className="bg-foreground text-background">
+            </Popup.Trigger>
+            <Popup.Content placement="bottom" className="bg-foreground text-background">
                 {`Provided by third-party marketplace "${plugin.marketplaceName}"`}
-            </Tooltip.Content>
-        </Tooltip>
+            </Popup.Content>
+        </Popup>
     );
 }
 
